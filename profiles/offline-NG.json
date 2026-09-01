@@ -1,0 +1,10 @@
+{
+  "locale": "en-NG",
+  "currency": "NGN",
+  "id_formats": ["NIN", "BVN"],
+  "payment_rails": ["ussd"],
+  "connectivity": "offline_first",
+  "max_tool_latency_ms": 1000,
+  "max_run_cost_usd": 0.05,
+  "language_preference": "en"
+}

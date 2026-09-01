@@ -1,0 +1,10 @@
+{
+  "locale": "en-NG",
+  "currency": "NGN",
+  "id_formats": ["NIN", "BVN"],
+  "payment_rails": ["bank", "ussd", "mobile_money", "paystack"],
+  "connectivity": "intermittent",
+  "max_tool_latency_ms": 8000,
+  "max_run_cost_usd": 0.15,
+  "language_preference": "en"
+}

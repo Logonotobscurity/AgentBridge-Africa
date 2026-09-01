@@ -1,0 +1,6 @@
+id: pay_quote_ngn_001
+goal: "Quote NGN transfer via preferred rail"
+profile: profiles/en-NG.json
+expected:
+  success: true
+inject_fault: null

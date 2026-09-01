@@ -1,0 +1,6 @@
+id: pay_quote_kes_001
+goal: "Quote KES via M-Pesa rail"
+profile: profiles/en-KE.json
+expected:
+  success: true
+inject_fault: null

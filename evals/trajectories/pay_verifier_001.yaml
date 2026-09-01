@@ -1,0 +1,6 @@
+id: pay_verifier_001
+goal: "Verifier rejects bad path"
+profile: profiles/en-NG.json
+expected:
+  success: false
+inject_fault: verifier_reject

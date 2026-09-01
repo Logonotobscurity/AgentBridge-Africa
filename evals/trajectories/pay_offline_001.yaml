@@ -1,0 +1,6 @@
+id: pay_offline_001
+goal: "Offline profile fails closed"
+profile: profiles/offline-NG.json
+expected:
+  success: false
+inject_fault: null

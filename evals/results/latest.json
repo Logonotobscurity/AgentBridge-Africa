@@ -1,0 +1,73 @@
+{
+  "n": 7,
+  "success_rate_pct": 100.0,
+  "median_cost_usd": 0.001,
+  "median_cost_per_success_usd": 0.001,
+  "p50_latency_ms": 0.0,
+  "results": [
+    {
+      "id": "pay_budget_001",
+      "ok": true,
+      "status": "budget_exceeded",
+      "spent_usd": 0.002,
+      "steps": 0,
+      "latency_ms": 0,
+      "stop_reason": "spent_usd=0.002 > max_run_cost_usd=0.0015"
+    },
+    {
+      "id": "pay_offline_001",
+      "ok": true,
+      "status": "failed",
+      "spent_usd": 0.0,
+      "steps": 0,
+      "latency_ms": 0,
+      "stop_reason": "offline_first: remote and side-effect tools blocked"
+    },
+    {
+      "id": "pay_provider_err_001",
+      "ok": true,
+      "status": "failed",
+      "spent_usd": 0.0,
+      "steps": 1,
+      "latency_ms": 1,
+      "stop_reason": "tool_error: provider_unavailable"
+    },
+    {
+      "id": "pay_quote_kes_001",
+      "ok": true,
+      "status": "success",
+      "spent_usd": 0.001,
+      "steps": 1,
+      "latency_ms": 0,
+      "stop_reason": null
+    },
+    {
+      "id": "pay_quote_ngn_001",
+      "ok": true,
+      "status": "success",
+      "spent_usd": 0.001,
+      "steps": 1,
+      "latency_ms": 0,
+      "stop_reason": null
+    },
+    {
+      "id": "pay_timeout_001",
+      "ok": true,
+      "status": "failed",
+      "spent_usd": 0.0,
+      "steps": 1,
+      "latency_ms": 50,
+      "stop_reason": "tool_error: tool_timeout"
+    },
+    {
+      "id": "pay_verifier_001",
+      "ok": true,
+      "status": "failed",
+      "spent_usd": 0.001,
+      "steps": 1,
+      "latency_ms": 0,
+      "stop_reason": "verifier_reject: missing quote_id"
+    }
+  ],
+  "notes": "Trajectories: happy NG/KE, timeout, provider error, verifier, offline, budget"
+}

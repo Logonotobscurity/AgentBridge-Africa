@@ -1,0 +1,6 @@
+id: pay_provider_err_001
+goal: "Quote should surface provider_unavailable"
+profile: profiles/en-NG.json
+expected:
+  success: false
+inject_fault: provider_error

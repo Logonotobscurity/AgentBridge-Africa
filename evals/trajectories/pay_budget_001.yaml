@@ -1,0 +1,6 @@
+id: pay_budget_001
+goal: "Budget hard stop"
+profile: profiles/en-NG.json
+expected:
+  success: false
+inject_fault: budget

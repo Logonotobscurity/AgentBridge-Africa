@@ -1,0 +1,10 @@
+{
+  "locale": "en-KE",
+  "currency": "KES",
+  "id_formats": ["national_id"],
+  "payment_rails": ["mpesa", "mobile_money", "bank"],
+  "connectivity": "intermittent",
+  "max_tool_latency_ms": 8000,
+  "max_run_cost_usd": 0.15,
+  "language_preference": "en"
+}

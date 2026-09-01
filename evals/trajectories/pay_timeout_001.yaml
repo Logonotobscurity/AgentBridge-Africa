@@ -1,0 +1,6 @@
+id: pay_timeout_001
+goal: "Quote should surface tool_timeout"
+profile: profiles/en-NG.json
+expected:
+  success: false
+inject_fault: tool_timeout
