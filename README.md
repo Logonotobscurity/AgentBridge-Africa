@@ -68,8 +68,25 @@ AgentBridge-Africa/
 ├── src/bridge/                       # deprecated compatibility imports only
 ├── tools/                            # deprecated compatibility imports/stub
 ├── evals/                            # golden + production sampler
+├── frontend/                         # Next.js operator console
 └── tests/test_budget_guardian.py
 ```
+
+## Operator console
+
+The responsive Next.js console in [`frontend/`](frontend/) demonstrates the production operator workflow: payment lifecycle visibility, provider health, run-cost budgets, reconciliation, immutable audit evidence, and five-step HITL approval. Demonstration identifiers are scrubbed; verifier references are accepted instead of raw OTPs, PINs, credentials, or recipient PII.
+
+```bash
+cd frontend
+npm install
+npm run dev       # http://localhost:3000
+
+# Production validation
+npm run lint
+npm run build
+```
+
+Dashboard data is typed mock data for now. Approval actions update local UI state only; they do not invoke a payment connector.
 
 ## Quick start
 
