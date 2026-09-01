@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from agentbridge.compliance.oscal_exporter import Finding, export_oscal_results
 from agentbridge.core.circuit_breaker import CircuitBreaker, CircuitOpenError
 from agentbridge.core.hitl import HitlGate
@@ -21,6 +24,18 @@ def test_tool_annotations_split_read_vs_destructive():
     assert push["readOnlyHint"] is False and push["destructiveHint"] is True
     assert query["readOnly"] is True and query["destructive"] is False and query["idempotent"] is True
     assert all(annotations_dict(t) for t in PAYMENT_TOOLS)
+
+
+def test_server_card_matches_native_tool_contracts():
+    card = json.loads((Path(__file__).parents[1] / ".well-known" / "mcp.json").read_text())
+    discovered = {tool["name"]: tool for tool in card["tools"]}
+    assert set(discovered) == {tool.name for tool in PAYMENT_TOOLS}
+    for tool in PAYMENT_TOOLS:
+        entry = discovered[tool.name]
+        annotations = annotations_dict(tool)
+        assert entry["inputSchema"] == tool.inputSchema
+        for name in ("readOnly", "destructive", "idempotent", "readOnlyHint", "destructiveHint", "idempotentHint"):
+            assert entry["annotations"][name] == annotations[name]
 
 
 def test_oscal_poam_on_failed_budget(tmp_path, monkeypatch):
@@ -152,3 +167,51 @@ def test_production_sampler_scores_grounding():
         }
     )
     assert good["pass"] is True
+
+
+def test_router_budget_interceptor_never_calls_provider():
+    state = AgentState(spent_usd=1.0)
+    state.profile.max_run_cost_usd = 0.5
+    called = False
+
+    def provider():
+        nonlocal called
+        called = True
+
+    state, response = AgentRouter().dispatch(state, QUOTE_PAYMENT, provider)
+    assert called is False
+    assert state.status == "budget_exceeded"
+    assert response["status"] == 402
+
+
+def test_router_requires_idempotency_before_destructive_dispatch():
+    route = AgentRouter().gate(AgentState(), MPESA_STK_PUSH, {"amount": 10})
+    assert route.decision == "block"
+    assert "idempotency_key" in route.reason
+
+
+def test_oscal_accepts_mapping_and_rejects_unsafe_run_id(tmp_path):
+    paths = export_oscal_results(
+        "mapping-run",
+        [{"control_id": "AB-AML-1", "title": "AML", "success": True, "rationale": "passed"}],
+        root=tmp_path,
+    )
+    assert paths["assessment-results"].endswith("assessment-results.oscal.json")
+    try:
+        export_oscal_results("../escape", [], root=tmp_path)
+        raise AssertionError("path traversal must be rejected")
+    except ValueError:
+        pass
+
+
+def test_satisfied_reassessment_removes_stale_poam(tmp_path):
+    failed = Finding(control_id="AB-BUDGET-1", title="Budget", success=False, rationale="failed")
+    export_oscal_results("rerun", [failed], root=tmp_path)
+    poam = tmp_path / ".venturalitica" / "runs" / "rerun" / "poam.oscal.json"
+    assert poam.exists()
+    export_oscal_results(
+        "rerun",
+        [Finding(control_id="AB-BUDGET-1", title="Budget", success=True, rationale="passed")],
+        root=tmp_path,
+    )
+    assert not poam.exists()

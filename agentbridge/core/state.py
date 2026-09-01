@@ -32,13 +32,13 @@ class ContextProfile(BaseModel):
     id_formats: list[str] = Field(default_factory=lambda: ["NIN", "BVN"])
     payment_rails: list[str] = Field(default_factory=lambda: ["bank", "ussd", "mobile_money"])
     connectivity: Connectivity = "intermittent"
-    max_tool_latency_ms: int = 8000
-    max_run_cost_usd: float = 0.15
+    max_tool_latency_ms: int = Field(default=8000, gt=0)
+    max_run_cost_usd: float = Field(default=0.15, ge=0, allow_inf_nan=False)
     language_preference: str = "en"
     # v2 optional
-    hitl_amount_threshold: float = 100_000.0
+    hitl_amount_threshold: float = Field(default=100_000.0, ge=0, allow_inf_nan=False)
     oauth_required: bool = False
-    aml_daily_limit: float = 1_000_000.0
+    aml_daily_limit: float = Field(default=1_000_000.0, ge=0, allow_inf_nan=False)
 
 
 class StepResult(BaseModel):

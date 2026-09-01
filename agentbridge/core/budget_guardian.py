@@ -11,6 +11,7 @@ the guardian:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from math import isfinite
 from typing import Any, Callable
 
 from agentbridge.core.state import AgentState
@@ -43,9 +44,22 @@ class BudgetGuardian:
         return round(state.profile.max_run_cost_usd - state.spent_usd, 6)
 
     def would_exceed(self, state: AgentState, add_cost: float) -> bool:
+        add_cost = self._valid_cost(add_cost)
         return round(state.spent_usd + add_cost, 6) > state.profile.max_run_cost_usd
 
+    @staticmethod
+    def _valid_cost(add_cost: float) -> float:
+        """Reject credits and non-finite provider values that could bypass a cap."""
+        try:
+            cost = float(add_cost)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("add_cost must be a finite non-negative number") from exc
+        if not isfinite(cost) or cost < 0:
+            raise ValueError("add_cost must be a finite non-negative number")
+        return cost
+
     def charge(self, state: AgentState, add_cost: float = 0.0, *, raise_on_cap: bool = False) -> AgentState:
+        add_cost = self._valid_cost(add_cost)
         if state.status == "budget_exceeded":
             state.http_status = HTTP_402_PAYMENT_REQUIRED
             if raise_on_cap:

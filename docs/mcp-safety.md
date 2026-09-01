@@ -22,7 +22,7 @@ Annotations emitted on every tool (both AgentBridge aliases and MCP hints):
 
 ## Server card
 
-`GET /.well-known/mcp.json` is a static, indexable capability document. Crawlers and orchestrators can classify high-risk financial actions **without** opening a session.
+`GET /.well-known/mcp.json` is a static, indexable capability document. Crawlers and orchestrators can classify high-risk financial actions **without** opening a session. It includes each tool's complete input schema, and contract tests prevent discovery metadata from drifting from runtime definitions.
 
 ## Least-privilege scopes
 

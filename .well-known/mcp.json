@@ -24,77 +24,378 @@
     }
   },
   "capabilities": {
-    "tools": { "listChanged": true },
-    "resources": { "subscribe": true, "listChanged": true },
+    "tools": {
+      "listChanged": true
+    },
+    "resources": {
+      "subscribe": true,
+      "listChanged": true
+    },
     "logging": {}
   },
   "tools": [
     {
       "name": "quote_payment",
       "description": "Price a transfer across an African rail without moving money",
-      "annotations": { "readOnly": true, "destructive": false, "idempotent": true }
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "rail"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string"
+          },
+          "rail": {
+            "type": "string",
+            "enum": [
+              "bank",
+              "ussd",
+              "mobile_money",
+              "mpesa",
+              "paystack",
+              "mtn_momo"
+            ]
+          },
+          "country": {
+            "type": "string"
+          }
+        }
+      }
     },
     {
       "name": "mpesa_stk_query",
       "description": "Check status of a pending M-Pesa transaction",
-      "annotations": { "readOnly": true, "destructive": false, "idempotent": true }
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "checkout_request_id"
+        ],
+        "properties": {
+          "checkout_request_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        }
+      }
     },
     {
       "name": "paystack_verify",
       "description": "Verify a Paystack transaction by reference",
-      "annotations": { "readOnly": true, "destructive": false, "idempotent": true }
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "reference"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string"
+          }
+        }
+      }
     },
     {
       "name": "mpesa_stk_push",
       "description": "Initiate M-Pesa mobile money STK push payment request",
-      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "phone",
+          "idempotency_key"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "KES",
+              "NGN",
+              "GHS",
+              "UGX",
+              "USD"
+            ]
+          },
+          "phone": {
+            "type": "string",
+            "description": "MSISDN in international format"
+          },
+          "account_reference": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
     },
     {
       "name": "mpesa_b2c_disburse",
       "description": "Disburse funds via M-Pesa B2C",
-      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "phone",
+          "idempotency_key"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "KES"
+            ]
+          },
+          "phone": {
+            "type": "string"
+          },
+          "occasion": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
     },
     {
       "name": "paystack_initialize",
       "description": "Initialize a Paystack checkout",
-      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "email",
+          "idempotency_key"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "NGN",
+              "GHS",
+              "USD",
+              "ZAR"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
     },
     {
       "name": "bank_transfer_ngn",
       "description": "Initiate a NGN bank credit transfer",
-      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "account_number",
+          "bank_code",
+          "idempotency_key"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "const": "NGN"
+          },
+          "account_number": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 10
+          },
+          "bank_code": {
+            "type": "string"
+          },
+          "narration": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
     },
     {
       "name": "execute_payment",
       "description": "Execute a previously quoted payment",
-      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "quote_id",
+          "idempotency_key",
+          "rail"
+        ],
+        "properties": {
+          "quote_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "rail": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          }
+        }
+      }
     }
   ],
   "resources": [
     {
       "uri": "agentbridge://runs/{run_id}/state",
       "name": "run_state",
-      "annotations": { "readOnly": true, "idempotent": true }
+      "annotations": {
+        "readOnly": true,
+        "idempotent": true,
+        "destructive": false
+      }
     },
     {
       "uri": "agentbridge://profiles/{locale}",
       "name": "context_profile",
-      "annotations": { "readOnly": true, "idempotent": true }
+      "annotations": {
+        "readOnly": true,
+        "idempotent": true,
+        "destructive": false
+      }
     },
     {
       "uri": "agentbridge://wallet/{account}/balance",
       "name": "wallet_balance",
-      "annotations": { "readOnly": true, "idempotent": true }
+      "annotations": {
+        "readOnly": true,
+        "idempotent": true,
+        "destructive": false
+      }
     },
     {
       "uri": "agentbridge://compliance/{run_id}/assessment-results",
       "name": "oscal_assessment_results",
-      "annotations": { "readOnly": true, "idempotent": true }
+      "annotations": {
+        "readOnly": true,
+        "idempotent": true,
+        "destructive": false
+      }
     },
     {
       "uri": "agentbridge://compliance/{run_id}/poam",
       "name": "oscal_poam",
-      "annotations": { "readOnly": true, "idempotent": true }
+      "annotations": {
+        "readOnly": true,
+        "idempotent": true,
+        "destructive": false
+      }
     }
   ]
 }

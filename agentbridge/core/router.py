@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Literal
 
+from agentbridge.core.budget_guardian import BudgetGuardian, payment_required_body
 from agentbridge.core.circuit_breaker import CircuitBreaker, CircuitOpenError
 from agentbridge.core.hitl import HitlGate
 from agentbridge.core.oauth import TokenClaims, scope_allows
@@ -16,6 +17,7 @@ from agentbridge.core.state import AgentState
 from agentbridge.core.telemetry import Tracer
 from agentbridge.core.timeouts import TimeoutBudget, TimeoutError, call_with_timeout
 from agentbridge.tools.mcp_types import Tool, annotations_dict
+from agentbridge.tools.payment_mcp import require_idempotency
 
 Decision = Literal["dispatch", "block", "escalate", "hitl", "degrade"]
 
@@ -41,6 +43,7 @@ class RouteResult:
 @dataclass
 class AgentRouter:
     hitl: HitlGate = field(default_factory=HitlGate)
+    budget: BudgetGuardian = field(default_factory=BudgetGuardian)
     tracer: Tracer = field(default_factory=Tracer)
     breakers: dict[str, CircuitBreaker] = field(default_factory=dict)
     timeout: TimeoutBudget = field(default_factory=TimeoutBudget)
@@ -76,6 +79,14 @@ class AgentRouter:
         anns = annotations_dict(tool)
         agent = self.select_agent(tool)
         arguments = arguments or {}
+
+        # A destructive primitive without a stable request key is unsafe to
+        # retry and must never reach a provider. Keep this in the central
+        # router rather than relying on each adapter to remember the check.
+        try:
+            require_idempotency(tool.name, arguments)
+        except ValueError as exc:
+            return RouteResult("block", agent, str(exc), tool.name, anns)
 
         if token is not None:
             needed = "payments:execute" if anns.get("destructive") else "payments:quote"
@@ -113,6 +124,14 @@ class AgentRouter:
         token: TokenClaims | None = None,
     ) -> tuple[AgentState, Any]:
         arguments = arguments or {}
+
+        # This is the final pre-provider interceptor. A resumed graph whose
+        # budget was previously exhausted must return the same HTTP 402 stop
+        # signal without evaluating policy or invoking another tool.
+        self.budget.intercept(state)
+        if state.status == "budget_exceeded":
+            return state, payment_required_body(state)
+
         route = self.gate(state, tool, arguments, token=token)
         state.routed_agent = route.agent
         state.circuit_states = {k: v.state for k, v in self.breakers.items()}

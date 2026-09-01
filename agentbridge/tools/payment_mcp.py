@@ -14,7 +14,7 @@ from agentbridge.tools.mcp_types import Tool
 
 AMOUNT_SCHEMA = {
     "type": "object",
-    "required": ["amount", "currency", "phone"],
+    "required": ["amount", "currency", "phone", "idempotency_key"],
     "properties": {
         "amount": {"type": "number", "minimum": 1},
         "currency": {"type": "string", "enum": ["KES", "NGN", "GHS", "UGX", "USD"]},
