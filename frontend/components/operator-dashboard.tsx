@@ -33,19 +33,25 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { auditEvents, payments as initialPayments, rails } from "@/lib/mock-data";
 import type { Payment, PaymentStatus } from "@/lib/types";
 
 const nav = [
-  { label: "Overview", icon: LayoutDashboard, active: true },
-  { label: "Payment intents", icon: WalletCards, count: 18 },
-  { label: "Approval queue", icon: Fingerprint, count: 2 },
-  { label: "Reconciliation", icon: RefreshCw, count: 4 },
-  { label: "Provider rails", icon: Network },
-  { label: "Audit & OSCAL", icon: FileCheck2 },
-];
+  { label: "Overview", icon: LayoutDashboard, target: "top" },
+  { label: "Payment intents", icon: WalletCards, count: 18, target: "payment-intents", filter: "All" },
+  { label: "Approval queue", icon: Fingerprint, count: 2, target: "approval-queue", filter: "Needs action" },
+  { label: "Reconciliation", icon: RefreshCw, count: 4, target: "reconciliation", filter: "In flight" },
+  { label: "Provider rails", icon: Network, target: "provider-rails" },
+  { label: "Audit & OSCAL", icon: FileCheck2, target: "audit-oscal" },
+] as const;
+
+const configureNav = [
+  { label: "Policy controls", icon: ShieldCheck, target: "policy-controls" },
+  { label: "Agent graph", icon: Bot, target: "agent-graph" },
+  { label: "Infrastructure", icon: ServerCog, target: "infrastructure" },
+] as const;
 
 const questions = [
   "Recipient reference matches the verified vendor manifest",
@@ -82,11 +88,14 @@ function StatusPill({ status }: { status: PaymentStatus }) {
   );
 }
 
+type LedgerFilter = "All" | "Needs action" | "In flight" | "Final";
+
 export default function OperatorDashboard() {
   const [mobileNav, setMobileNav] = useState(false);
+  const [activeSection, setActiveSection] = useState("top");
   const [payments, setPayments] = useState(initialPayments);
   const [selectedId, setSelectedId] = useState(initialPayments[0].id);
-  const [filter, setFilter] = useState<"All" | "Needs action" | "In flight" | "Final">("All");
+  const [filter, setFilter] = useState<LedgerFilter>("All");
   const [search, setSearch] = useState("");
   const [checks, setChecks] = useState<boolean[]>(questions.map(() => false));
   const [confirmation, setConfirmation] = useState("");
@@ -113,6 +122,19 @@ export default function OperatorDashboard() {
 
   const ready = checks.every(Boolean) && confirmation.trim().length >= 8;
 
+  useEffect(() => {
+    const syncHash = () => setActiveSection(window.location.hash.slice(1) || "top");
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
+
+  function navigate(target: string, nextFilter?: LedgerFilter) {
+    if (nextFilter) setFilter(nextFilter);
+    setActiveSection(target);
+    setMobileNav(false);
+  }
+
   function choosePayment(payment: Payment) {
     setSelectedId(payment.id);
     setChecks(questions.map(() => false));
@@ -135,7 +157,7 @@ export default function OperatorDashboard() {
     <div className="shell">
       <aside className={`sidebar ${mobileNav ? "open" : ""}`}>
         <div className="sidebar-head">
-          <a className="brand" href="#top" aria-label="AgentBridge home">
+          <a className="brand" href="#top" onClick={() => navigate("top")} aria-label="AgentBridge home">
             <BrandMark />
             <div>
               <strong>AgentBridge</strong>
@@ -156,16 +178,29 @@ export default function OperatorDashboard() {
         <nav aria-label="Main navigation">
           <p className="nav-label">Operate</p>
           {nav.map((item) => (
-            <a className={`nav-item ${item.active ? "active" : ""}`} href={`#${item.label.toLowerCase().replaceAll(" ", "-")}`} key={item.label}>
+            <a
+              className={`nav-item ${activeSection === item.target ? "active" : ""}`}
+              href={`#${item.target}`}
+              onClick={() => navigate(item.target, "filter" in item ? item.filter : undefined)}
+              key={item.label}
+            >
               <item.icon size={18} strokeWidth={1.8} />
               <span>{item.label}</span>
-              {item.count ? <em>{item.count}</em> : null}
+              {"count" in item && item.count ? <em>{item.count}</em> : null}
             </a>
           ))}
           <p className="nav-label second">Configure</p>
-          <a className="nav-item" href="#policy"><ShieldCheck size={18} /><span>Policy controls</span></a>
-          <a className="nav-item" href="#agents"><Bot size={18} /><span>Agent graph</span></a>
-          <a className="nav-item" href="#settings"><ServerCog size={18} /><span>Infrastructure</span></a>
+          {configureNav.map((item) => (
+            <a
+              className={`nav-item ${activeSection === item.target ? "active" : ""}`}
+              href={`#${item.target}`}
+              onClick={() => navigate(item.target)}
+              key={item.label}
+            >
+              <item.icon size={18} />
+              <span>{item.label}</span>
+            </a>
+          ))}
         </nav>
 
         <div className="sidebar-foot">
@@ -220,7 +255,7 @@ export default function OperatorDashboard() {
             <article className="metric-card action-card">
               <div className="metric-icon amber"><Fingerprint size={20} /></div>
               <div className="metric-copy"><span>Needs approval</span><strong>2 intents</strong><small><Clock3 size={13} /> Oldest waiting 2m 14s</small></div>
-              <button onClick={() => { setFilter("Needs action"); document.getElementById("approval-panel")?.scrollIntoView({ behavior: "smooth" }); }}>Review <ArrowRight size={15} /></button>
+              <button onClick={() => { navigate("approval-queue", "Needs action"); document.getElementById("approval-queue")?.scrollIntoView({ behavior: "smooth" }); }}>Review <ArrowRight size={15} /></button>
             </article>
             <article className="metric-card">
               <div className="metric-icon blue"><RefreshCw size={20} /></div>
@@ -251,7 +286,7 @@ export default function OperatorDashboard() {
               </div>
             </article>
 
-            <article className="panel audit-panel" id="audit-&-oscal">
+            <article className="panel audit-panel" id="audit-oscal">
               <div className="panel-head"><div><span className="section-kicker">Immutable evidence</span><h2>Audit stream</h2></div><button className="icon-button"><SlidersHorizontal size={16} /></button></div>
               <div className="audit-list">
                 {auditEvents.map((event) => (
@@ -268,6 +303,7 @@ export default function OperatorDashboard() {
 
           <section className="workbench-grid">
             <article className="panel ledger-panel" id="payment-intents">
+              <span className="anchor-target" id="reconciliation" aria-hidden="true" />
               <div className="panel-head ledger-heading">
                 <div><span className="section-kicker">Provider-neutral ledger</span><h2>Payment intents</h2></div>
                 <button className="secondary-button"><ArrowDownRight size={15} /> Export</button>
@@ -298,7 +334,7 @@ export default function OperatorDashboard() {
               <div className="table-footer"><span>Showing {visiblePayments.length} of {payments.length} intents</span><button>View full ledger <ArrowRight size={14} /></button></div>
             </article>
 
-            <article className="panel approval-panel" id="approval-panel">
+            <article className="panel approval-panel" id="approval-queue">
               <div className="approval-top">
                 <div className="approval-title"><div className="shield-badge"><ShieldCheck size={20} /></div><div><span className="section-kicker">Human verification</span><h2>Decision required</h2></div></div>
                 <span className={`risk ${selected.risk.toLowerCase()}`}>{selected.risk} risk</span>
@@ -338,6 +374,24 @@ export default function OperatorDashboard() {
                   <button className="secondary-button" onClick={() => { const next = payments.find((payment) => payment.status === "Awaiting approval"); if (next) choosePayment(next); }}>Open next approval</button>
                 </div>
               )}
+            </article>
+          </section>
+
+          <section className="configuration-grid" aria-label="Configuration status">
+            <article className="panel configuration-card" id="policy-controls">
+              <div className="configuration-icon"><ShieldCheck size={19} /></div>
+              <div><span className="section-kicker">Policy controls</span><h3>Destructive actions gated</h3><p>Verifier-backed confirmation, Decimal limits, and budget hard stops are enforced.</p></div>
+              <BadgeCheck size={18} />
+            </article>
+            <article className="panel configuration-card" id="agent-graph">
+              <div className="configuration-icon"><Bot size={19} /></div>
+              <div><span className="section-kicker">Agent graph</span><h3>Policy-first routing</h3><p>Planner → policy gate → operator → allowlisted provider execution.</p></div>
+              <Network size={18} />
+            </article>
+            <article className="panel configuration-card" id="infrastructure">
+              <div className="configuration-icon"><ServerCog size={19} /></div>
+              <div><span className="section-kicker">Infrastructure</span><h3>Checkpointing healthy</h3><p>PostgreSQL FSM, asynchronous outbox, and telemetry exporters are online.</p></div>
+              <CheckCircle2 size={18} />
             </article>
           </section>
 
