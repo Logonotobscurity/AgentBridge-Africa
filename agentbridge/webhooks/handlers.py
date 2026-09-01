@@ -32,7 +32,7 @@ class WebhookResult:
 
 
 class ProviderStatusClient(Protocol):
-    async def query_status(self, provider_reference: str) -> str: ...
+    async def query_transaction_status(self, provider_reference: str) -> Any: ...
 
 
 class WebhookHandler:
@@ -107,7 +107,11 @@ class PaymentReconciler:
         if not transaction.provider_reference:
             raise ValueError("provider_reference is required for reconciliation")
         client = self.clients[transaction.provider]
-        provider_status = (await client.query_status(transaction.provider_reference)).lower()
+        query = getattr(client, "query_transaction_status", None) or getattr(client, "query_status")
+        queried = await query(transaction.provider_reference)
+        raw_status = getattr(queried, "status", queried)
+        raw_status = getattr(raw_status, "value", raw_status)
+        provider_status = str(raw_status).lower()
         if provider_status in self.SUCCESS:
             target = PaymentStatus.CONFIRMED
         elif provider_status in self.FAILURE:

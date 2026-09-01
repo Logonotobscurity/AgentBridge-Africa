@@ -46,6 +46,13 @@ AgentBridge-Africa/
 │   │   ├── circuit_breaker.py
 │   │   ├── telemetry.py              # OTEL-shaped traces
 │   │   └── state.py                  # AgentState schema v2
+│   ├── payments/                     # live-ready async capability packs
+│   │   ├── engine.py                 # production ContextProfile facade
+│   │   ├── daraja.py                 # Safaricom OAuth, STK, status query
+│   │   ├── paystack.py               # initialize + verify transaction
+│   │   ├── mtn_momo.py               # request-to-pay + status query
+│   │   ├── runtime.py                # secrets, egress allowlist, transport
+│   │   └── registry.py               # allowlisted dependency injection
 │   ├── tools/
 │   │   ├── payment_mcp.py            # unified annotated MCP contracts
 │   │   ├── payment_engine.py         # provider-neutral payment facade
@@ -71,6 +78,8 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 make eval
 python -m pytest -q
+# Live connector transport (credentials are still deployment-owned):
+pip install '.[connectors]'
 ```
 
 Discovery card (no live connection required):
@@ -144,6 +153,6 @@ Latest sandbox run: **7 / 7 expected outcomes (100%)**.
 - OAuth 2.1 + PKCE on remote MCP; tokens bound to exact scopes
 - OpenTelemetry-shaped traces on every LLM / tool / policy span
 
-See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/architecture.md`](docs/architecture.md), [`docs/production-architecture.md`](docs/production-architecture.md), [`docs/webhooks.md`](docs/webhooks.md), the [`Context Router & PostgreSQL FSM audit`](docs/audits/context-router-postgres-fsm-audit.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
+See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/architecture.md`](docs/architecture.md), [`docs/production-architecture.md`](docs/production-architecture.md), [`docs/webhooks.md`](docs/webhooks.md), the [`Context Router & PostgreSQL FSM audit`](docs/audits/context-router-postgres-fsm-audit.md), the [`Provider Connector audit`](docs/audits/provider-connectors-audit.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
 
-Sandbox only — synthetic quotes, no live payment rails, no real PII.
+Default execution remains sandboxed. Live connector classes perform no network I/O until explicitly registered with deployment-owned secrets, policy, callback hosts, and egress configuration.

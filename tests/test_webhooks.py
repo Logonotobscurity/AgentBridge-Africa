@@ -85,6 +85,28 @@ def test_authenticated_webhook_is_hint_then_head_end_confirms():
     asyncio.run(scenario())
 
 
+def test_reconciler_accepts_normalized_connector_result():
+    async def scenario():
+        from agentbridge.payments.models import ConnectorResult
+
+        repository = MemoryRepository(_transaction(PaymentStatus.CALLBACK_RECEIVED))
+
+        class Connector:
+            async def query_transaction_status(self, provider_reference):
+                return ConnectorResult(
+                    provider="paystack",
+                    status="CONFIRMED",
+                    provider_reference=provider_reference,
+                )
+
+        result = await PaymentReconciler(repository, {"paystack": Connector()}).reconcile(
+            repository.transaction
+        )
+        assert result == PaymentStatus.CONFIRMED
+
+    asyncio.run(scenario())
+
+
 def test_bad_webhook_signature_fails_before_database_write():
     async def scenario():
         repository = MemoryRepository(_transaction())

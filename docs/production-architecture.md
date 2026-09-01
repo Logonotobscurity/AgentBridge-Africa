@@ -50,6 +50,10 @@ Postgres-checkpointed lifecycle
 
 Production health should come from circuit-breaker/readiness data with a short TTL. It must not be inferred by the language model.
 
+### Live capability packs
+
+`agentbridge.payments.ProductionPaymentEngine` binds the deterministic selection to an allowlisted async connector registry. Daraja, Paystack, and MTN MoMo packs resolve secrets and tokenized recipients only at execution, reject floats, disable HTTP redirects, and return normalized non-terminal results for ambiguous transport outcomes. See the [provider connector audit](audits/provider-connectors-audit.md) before activation.
+
 ## 2. Safety and confirmation
 
 MCP annotations improve client UX but are not authorization. AgentBridge independently enforces:
