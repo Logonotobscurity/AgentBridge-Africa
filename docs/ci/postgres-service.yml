@@ -1,0 +1,24 @@
+# Copy this service/env/install configuration into .github/workflows/ci.yml.
+# It is stored outside .github because the connected GitHub App currently lacks
+# workflows permission and cannot push workflow changes.
+services:
+  postgres:
+    image: postgres:16-alpine
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agentbridge_test
+    ports:
+      - 5432:5432
+    options: >-
+      --health-cmd "pg_isready -U postgres -d agentbridge_test"
+      --health-interval 5s
+      --health-timeout 5s
+      --health-retries 12
+
+env:
+  AGENTBRIDGE_TEST_POSTGRES_DSN: postgresql://postgres:postgres@localhost:5432/agentbridge_test
+
+# Add to the install step:
+#   pip install -r requirements.txt "psycopg[binary,pool]>=3.2"
+# The existing pytest command then discovers tests/integration/test_payment_concurrency.py.

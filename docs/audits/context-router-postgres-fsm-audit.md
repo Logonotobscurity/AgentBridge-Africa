@@ -95,7 +95,8 @@ Current webhook handling intentionally stops at `CALLBACK_RECEIVED`; `PaymentRec
 - [x] Return generic HTTP 200 for authenticated unmatched callbacks after durable event storage.
 - [x] Add an atomic repository operation that records the callback, transitions matched state, and inserts an outbox reconciliation job in one transaction; duplicate retries repair/read the existing outcome rather than exiting early.
 - [x] Add a leased `SKIP LOCKED` outbox worker so provider polling starts only after the callback transaction commits.
-- [x] Add migration and concurrency tests against PostgreSQL 16 in CI, plus a local container harness.
+- [x] Add a local PostgreSQL 16 container harness and disposable-schema integration suite.
+- [ ] Activate the supplied PostgreSQL service fragment in GitHub Actions (blocked until the GitHub connection has workflow-write permission).
 
 **Exit criteria:** concurrent duplicate webhook and poll workers produce one final ledger transition and one fulfilment event; an unverified callback can never produce `CONFIRMED`.
 

@@ -45,7 +45,7 @@ Always acknowledge authenticated duplicates with HTTP 200. Do not expose whether
 
 ## PostgreSQL concurrency harness
 
-CI starts PostgreSQL 16 and sets `AGENTBRIDGE_TEST_POSTGRES_DSN`. The integration suite applies migrations 001/002 in a disposable schema and tests:
+The integration suite applies migrations 001/002 in a disposable PostgreSQL schema and tests:
 
 - ten simultaneous copies of one callback produce one event and one outbox job;
 - provider polling and delayed callback ingestion serialize without overwriting `CONFIRMED`;
@@ -59,7 +59,7 @@ pip install '.[postgres]'
 make test-postgres
 ```
 
-The local script binds PostgreSQL only to `127.0.0.1`, waits for readiness, runs the integration module, and always removes the container.
+The local script binds PostgreSQL only to `127.0.0.1`, waits for readiness, runs the integration module, and always removes the container. A ready-to-apply GitHub Actions service fragment is in `docs/ci/postgres-service.yml`; activating it requires GitHub workflow-write permission.
 
 ## Polling and settlement
 
