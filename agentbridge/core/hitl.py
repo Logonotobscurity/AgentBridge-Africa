@@ -57,15 +57,32 @@ class HitlGate:
             return None
         if amount is None or amount < threshold:
             return None
-        ticket = HitlTicket(
-            ticket_id=uuid4().hex[:12],
-            tool=name,
+        return self.request(
+            name,
             amount=amount,
             currency=currency,
             rationale=(
                 f"destructive tool {name} amount={amount} {currency or ''} "
                 f"exceeds HITL threshold {threshold}"
             ).strip(),
+        )
+
+    def request(
+        self,
+        tool: Tool | str,
+        *,
+        amount: float | None,
+        currency: str | None,
+        rationale: str,
+    ) -> HitlTicket:
+        """Create an explicit ticket for a policy escalation."""
+        name = tool if isinstance(tool, str) else tool.name
+        ticket = HitlTicket(
+            ticket_id=uuid4().hex[:12],
+            tool=name,
+            amount=amount,
+            currency=currency,
+            rationale=rationale,
             requested_at=datetime.now(timezone.utc).isoformat(),
         )
         self.tickets[ticket.ticket_id] = ticket

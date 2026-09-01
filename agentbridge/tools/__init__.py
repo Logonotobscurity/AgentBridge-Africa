@@ -1,6 +1,7 @@
 """MCP tools (actions) and resources (reads)."""
 
 from agentbridge.tools.mcp_types import Resource, Tool, annotations_dict, normalize_annotations
+from agentbridge.tools.payment_adapter import ToolEnvelope, execute, quote, status
 from agentbridge.tools.payment_mcp import (
     BANK_TRANSFER_NGN,
     EXECUTE_PAYMENT,
@@ -29,7 +30,11 @@ __all__ = [
     "Resource",
     "TOOLS_BY_NAME",
     "Tool",
+    "ToolEnvelope",
     "annotations_dict",
+    "execute",
     "normalize_annotations",
+    "quote",
     "read_resource",
+    "status",
 ]

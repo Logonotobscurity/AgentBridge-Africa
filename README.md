@@ -34,6 +34,9 @@ AgentBridge-Africa/
 ├── .well-known/mcp.json              # MCP Server Card
 ├── agentbridge/
 │   ├── core/
+│   │   ├── orchestrator.py           # planner / worker / verifier lifecycle
+│   │   ├── graph.py                  # optional LangGraph adapter
+│   │   ├── policy.py                 # allow / block / escalate
 │   │   ├── budget_guardian.py        # HTTP 402 hard-stop
 │   │   ├── router.py                 # A2A routing
 │   │   ├── oauth.py                  # OAuth 2.1 + PKCE
@@ -42,12 +45,14 @@ AgentBridge-Africa/
 │   │   ├── telemetry.py              # OTEL-shaped traces
 │   │   └── state.py                  # AgentState schema v2
 │   ├── tools/
-│   │   ├── payment_mcp.py            # annotated payment tools
+│   │   ├── payment_mcp.py            # annotated payment contracts
+│   │   ├── payment_adapter.py        # sandbox provider implementation
 │   │   └── resources.py              # read-only resources
 │   └── compliance/
 │       ├── oscal_exporter.py
 │       └── schemas/                  # OSCAL JSON v1.2.1 subset
-├── src/bridge/                       # existing planner/worker/verifier
+├── src/bridge/                       # deprecated compatibility imports only
+├── tools/                            # deprecated compatibility imports/stub
 ├── evals/                            # golden + production sampler
 └── tests/test_budget_guardian.py
 ```
@@ -132,6 +137,6 @@ Latest sandbox run: **7 / 7 expected outcomes (100%)**.
 - OAuth 2.1 + PKCE on remote MCP; tokens bound to exact scopes
 - OpenTelemetry-shaped traces on every LLM / tool / policy span
 
-See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
+See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/architecture.md`](docs/architecture.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
 
 Sandbox only — synthetic quotes, no live payment rails, no real PII.

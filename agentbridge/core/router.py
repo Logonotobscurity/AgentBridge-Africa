@@ -95,14 +95,13 @@ class AgentRouter:
             if not scope_allows(token, needed):
                 return RouteResult("block", agent, f"token missing scope {needed}", tool.name, anns)
 
-        if state.profile.connectivity == "offline_first" and not anns.get("readOnly"):
-            return RouteResult(
-                "degrade",
-                "fallback",
-                "offline_first: queue side-effect and serve cached read path",
-                tool.name,
-                anns,
+        if state.profile.connectivity == "offline_first":
+            reason = (
+                "offline_first: serve cached read path"
+                if anns.get("readOnly")
+                else "offline_first: queue side-effect"
             )
+            return RouteResult("degrade", "fallback", reason, tool.name, anns)
 
         amount = _coerce_amount(arguments)
         ticket = self.hitl.evaluate(tool, amount=amount, currency=state.profile.currency, threshold=state.profile.hitl_amount_threshold)
@@ -143,11 +142,13 @@ class AgentRouter:
         if route.decision == "hitl":
             return state, None
         if route.decision == "degrade":
-            state.fallback_queue.append({"tool": tool.name, "arguments": arguments})
             state.status = "degraded"
             if self.fallback_handler is not None:
                 return state, self.fallback_handler(state, tool.name, arguments)
-            return state, {"queued": True, "tool": tool.name}
+            if route.annotations.get("readOnly"):
+                return state, {"cached": False, "tool": tool.name, "reason": route.reason}
+            state.fallback_queue.append({"tool": tool.name, "arguments": arguments})
+            return state, {"queued": True, "tool": tool.name, "reason": route.reason}
 
         breaker = self.breaker_for(provider)
         span = self.tracer.start(tool.name, attributes={"agent": route.agent, "provider": provider})

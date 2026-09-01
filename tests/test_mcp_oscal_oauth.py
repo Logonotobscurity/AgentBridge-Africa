@@ -190,6 +190,22 @@ def test_router_requires_idempotency_before_destructive_dispatch():
     assert "idempotency_key" in route.reason
 
 
+def test_offline_read_uses_fallback_without_provider_call():
+    state = AgentState()
+    state.profile.connectivity = "offline_first"
+    called = False
+
+    def provider():
+        nonlocal called
+        called = True
+
+    state, response = AgentRouter().dispatch(state, QUOTE_PAYMENT, provider)
+    assert called is False
+    assert state.status == "degraded"
+    assert response["cached"] is False
+    assert state.fallback_queue == []
+
+
 def test_oscal_accepts_mapping_and_rejects_unsafe_run_id(tmp_path):
     paths = export_oscal_results(
         "mapping-run",

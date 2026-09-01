@@ -9,6 +9,8 @@ from agentbridge.core.budget_guardian import (
 from agentbridge.core.circuit_breaker import CircuitBreaker, CircuitOpenError
 from agentbridge.core.hitl import HitlGate, HitlTicket
 from agentbridge.core.oauth import OAuth21Provider, TokenClaims
+from agentbridge.core.orchestrator import run_budget_exhaustion, run_quote_goal
+from agentbridge.core.policy import decide
 from agentbridge.core.router import AgentRouter
 from agentbridge.core.state import AGENT_STATE_SCHEMA_VERSION, AgentState
 from agentbridge.core.telemetry import Tracer
@@ -30,5 +32,8 @@ __all__ = [
     "TokenClaims",
     "Tracer",
     "call_with_timeout",
+    "decide",
     "guard",
+    "run_budget_exhaustion",
+    "run_quote_goal",
 ]
