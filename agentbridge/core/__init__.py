@@ -17,6 +17,7 @@ from agentbridge.core.checkpointing import (
 from agentbridge.core.hitl import ConfirmationEvidence, HitlGate, HitlTicket
 from agentbridge.core.oauth import OAuth21Provider, TokenClaims
 from agentbridge.core.orchestrator import run_budget_exhaustion, run_quote_goal
+from agentbridge.core.payment_lifecycle import PaymentStatus, PaymentTransaction, PostgresPaymentRepository
 from agentbridge.core.policy import decide
 from agentbridge.core.rail_switch import RailRouter, RailSelection
 from agentbridge.core.router import AgentRouter
@@ -38,6 +39,9 @@ __all__ = [
     "HitlTicket",
     "OAuth21Provider",
     "PaymentRequiredStop",
+    "PaymentStatus",
+    "PaymentTransaction",
+    "PostgresPaymentRepository",
     "RailRouter",
     "RailSelection",
     "TimeoutBudget",

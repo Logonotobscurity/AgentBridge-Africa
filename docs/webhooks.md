@@ -1,0 +1,45 @@
+# Production webhook and reconciliation integration
+
+Webhook handlers are framework-neutral so FastAPI, Django, or an API gateway can pass the exact request bytes without reserialization.
+
+## Trust model
+
+A callback is an authenticated **occurrence hint**, not proof of financial finality:
+
+1. Reject oversized, malformed, unsupported, or unauthenticated requests.
+2. Deduplicate on `(provider, event_id)`.
+3. Store the event and SHA-256 body digest.
+4. Transition `SUBMITTED → CALLBACK_RECEIVED` under a row lock.
+5. Queue `PaymentReconciler` to query the provider head-end.
+6. Only the query result may transition to `CONFIRMED` or `FAILED`.
+
+Paystack callbacks use HMAC-SHA512 over the exact body. MTN deployments can use a provider callback token. M-Pesa endpoints should sit behind an mTLS workload proxy; `SpiffeProxyVerifier` trusts identity headers only when the proxy also supplies its verification marker. The proxy must strip client-supplied identity headers.
+
+## Database
+
+Apply `agentbridge/migrations/001_payment_lifecycle.sql` before traffic. It provides:
+
+- a unique idempotency key;
+- a unique provider/reference pair;
+- constrained FSM statuses;
+- deduplicated webhook events;
+- indexes for pending reconciliation;
+- records suitable for `SELECT ... FOR UPDATE` transitions.
+
+Use a dedicated database role. Webhook payload JSON may contain regulated data and should be encrypted at rest, access logged, retention-limited, and excluded from application logs.
+
+## Framework adapter sketch
+
+```python
+# Preserve request.body exactly; signature checks fail after JSON re-encoding.
+body = await request.body()
+result = await webhook_handler.handle("paystack", body, request.headers)
+# enqueue reconciliation when result.reconciliation_required
+return Response(status_code=result.http_status)
+```
+
+Always acknowledge authenticated duplicates with HTTP 200. Do not expose whether an unmatched reference belongs to a customer; the generic handler returns HTTP 202 and retains it for delayed matching.
+
+## Polling and settlement
+
+Run a sweeper for `SUBMITTED` records older than the callback SLA and for `CALLBACK_RECEIVED` records not yet reconciled. Bound retries and route exhausted cases into OSCAL findings/manual review. Nightly settlement ingestion should independently compare provider statement totals and references against confirmed internal records.

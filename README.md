@@ -51,9 +51,13 @@ AgentBridge-Africa/
 │   │   ├── payment_engine.py         # provider-neutral payment facade
 │   │   ├── payment_adapter.py        # sandbox provider implementation
 │   │   └── resources.py              # read-only resources
+│   ├── webhooks/
+│   │   ├── security.py               # HMAC/token/SPIFFE verification
+│   │   └── handlers.py               # dedupe + reconcile, never callback-final
 │   └── compliance/
 │       ├── oscal_exporter.py
 │       └── schemas/                  # OSCAL JSON v1.2.1 subset
+├── agentbridge/migrations/001_payment_lifecycle.sql
 ├── src/bridge/                       # deprecated compatibility imports only
 ├── tools/                            # deprecated compatibility imports/stub
 ├── evals/                            # golden + production sampler
@@ -140,6 +144,6 @@ Latest sandbox run: **7 / 7 expected outcomes (100%)**.
 - OAuth 2.1 + PKCE on remote MCP; tokens bound to exact scopes
 - OpenTelemetry-shaped traces on every LLM / tool / policy span
 
-See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/architecture.md`](docs/architecture.md), [`docs/production-architecture.md`](docs/production-architecture.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
+See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/architecture.md`](docs/architecture.md), [`docs/production-architecture.md`](docs/production-architecture.md), [`docs/webhooks.md`](docs/webhooks.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
 
 Sandbox only — synthetic quotes, no live payment rails, no real PII.
