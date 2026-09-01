@@ -118,7 +118,8 @@ class PostgresPaymentRepository:
         return None if row is None else _transaction_from_row(row)
 
     async def ingest_webhook(self, event: WebhookEvent) -> WebhookIngestResult:
-        """Commit callback evidence, FSM state, and outbox work as one unit."""
+        """Commit sanitized callback evidence, FSM state, and outbox work as one unit."""
+        _validate_sanitized_webhook_payload(event)
         async with self.pool.connection() as conn:
             async with conn.transaction():
                 cursor = await conn.execute(
@@ -347,6 +348,62 @@ class PostgresPaymentRepository:
             row = await cursor.fetchone()
             await conn.commit()
         return row is not None
+
+
+def _validate_sanitized_webhook_payload(event: WebhookEvent) -> None:
+    """Refuse raw/arbitrary JSON even when the repository is called directly."""
+    payload = event.payload
+    allowed_by_provider = {
+        "paystack": {"schema_version", "provider", "event", "provider_status", "pii_fingerprints"},
+        "mpesa": {"schema_version", "provider", "result_code", "pii_fingerprints"},
+        "mtn_momo": {"schema_version", "provider", "provider_status", "pii_fingerprints"},
+    }
+    allowed = allowed_by_provider.get(event.provider)
+    if (
+        allowed is None
+        or payload.get("schema_version") != 1
+        or payload.get("provider") != event.provider
+        or not set(payload).issubset(allowed)
+    ):
+        raise ValueError("webhook payload must be a sanitized provider projection")
+    safe_values = {
+        "event": {
+            "unknown", "charge.success", "transfer.success", "transfer.failed",
+            "transfer.reversed", "refund.processed", "refund.failed",
+        },
+        "provider_status": {
+            "unknown", "success", "successful", "failed", "abandoned", "reversed",
+            "rejected", "expired", "pending", "processing", "ongoing",
+        },
+    }
+    if any(payload.get(key) not in values for key, values in safe_values.items() if key in payload):
+        raise ValueError("webhook projection contains a non-allowlisted value")
+    result_code = payload.get("result_code")
+    if result_code is not None and not (
+        result_code == "unknown" or (
+            isinstance(result_code, str) and result_code.isdigit() and len(result_code) <= 12
+        )
+    ):
+        raise ValueError("webhook projection contains an invalid result code")
+
+    fingerprints = payload.get("pii_fingerprints", [])
+    if not isinstance(fingerprints, list):
+        raise ValueError("webhook PII fingerprints must be a list")
+    for fingerprint in fingerprints:
+        if not isinstance(fingerprint, Mapping) or set(fingerprint) != {
+            "kind", "algorithm", "key_id", "digest"
+        }:
+            raise ValueError("invalid webhook PII fingerprint")
+        digest = fingerprint.get("digest")
+        if (
+            fingerprint.get("kind") not in {"msisdn", "email"}
+            or fingerprint.get("algorithm") != "HMAC-SHA256"
+            or not isinstance(fingerprint.get("key_id"), str)
+            or not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ValueError("invalid webhook PII fingerprint")
 
 
 def _transaction_from_row(row: Any) -> PaymentTransaction:

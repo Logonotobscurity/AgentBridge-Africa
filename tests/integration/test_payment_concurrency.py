@@ -78,7 +78,12 @@ def _event(reference: str, event_id: str) -> WebhookEvent:
         event_id=event_id,
         provider_reference=reference,
         payload_sha256=hashlib.sha256(encoded).hexdigest(),
-        payload=payload,
+        payload={
+            "schema_version": 1,
+            "provider": "paystack",
+            "event": "charge.success",
+            "provider_status": "unknown",
+        },
     )
 
 

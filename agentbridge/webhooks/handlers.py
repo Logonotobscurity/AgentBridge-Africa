@@ -13,6 +13,7 @@ from agentbridge.core.payment_lifecycle import (
     PaymentTransaction,
     WebhookEvent,
 )
+from agentbridge.webhooks.redaction import WebhookPayloadSanitizer
 from agentbridge.webhooks.security import WebhookVerifier
 
 MAX_WEBHOOK_BYTES = 1_048_576
@@ -38,9 +39,17 @@ class ProviderStatusClient(Protocol):
 class WebhookHandler:
     """Authenticate, deduplicate, and record a callback as an unverified hint."""
 
-    def __init__(self, repository: PaymentRepository, verifiers: Mapping[str, WebhookVerifier]) -> None:
+    def __init__(
+        self,
+        repository: PaymentRepository,
+        verifiers: Mapping[str, WebhookVerifier],
+        payload_sanitizer: WebhookPayloadSanitizer,
+    ) -> None:
+        if payload_sanitizer is None:
+            raise ValueError("payload_sanitizer is required")
         self.repository = repository
         self.verifiers = dict(verifiers)
+        self.payload_sanitizer = payload_sanitizer
 
     async def handle(self, provider: str, body: bytes, headers: Mapping[str, str]) -> WebhookResult:
         provider = provider.lower()
@@ -58,13 +67,16 @@ class WebhookHandler:
         if not isinstance(payload, dict):
             raise InvalidWebhook("webhook body must be a JSON object")
 
+        # Identity extraction and cryptographic evidence use the authenticated
+        # raw body. Only the minimized projection may cross the persistence boundary.
         reference, event_id = _event_identity(provider, payload, headers, body)
+        sanitized_payload = self.payload_sanitizer.sanitize(provider, payload)
         event = WebhookEvent(
             provider=provider,
             event_id=event_id,
             provider_reference=reference,
             payload_sha256=hashlib.sha256(body).hexdigest(),
-            payload=payload,
+            payload=sanitized_payload,
         )
         outcome = await self.repository.ingest_webhook(event)
         # Acknowledge every authenticated, durable event with the same generic

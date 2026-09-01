@@ -7,12 +7,13 @@ Webhook handlers are framework-neutral so FastAPI, Django, or an API gateway can
 A callback is an authenticated **occurrence hint**, not proof of financial finality:
 
 1. Reject oversized, malformed, unsupported, or unauthenticated requests.
-2. Deduplicate on `(provider, event_id)`.
-3. Store the event and SHA-256 body digest.
-4. In the same database transaction, lock and transition `SUBMITTED → CALLBACK_RECEIVED`.
-5. Insert a unique reconciliation outbox job before committing.
-6. Lease jobs with `FOR UPDATE SKIP LOCKED`; query the provider head-end.
-7. Only the query result may transition to `CONFIRMED` or `FAILED`.
+2. Extract event identity from the authenticated exact body and compute its SHA-256 digest.
+3. Pass the decoded object through the mandatory `WebhookPayloadSanitizer`; persist only its provider-specific allowlisted projection and keyed PII fingerprints.
+4. Deduplicate on `(provider, event_id)`.
+5. In the same database transaction, lock and transition `SUBMITTED → CALLBACK_RECEIVED`.
+6. Insert a unique reconciliation outbox job before committing.
+7. Lease jobs with `FOR UPDATE SKIP LOCKED`; query the provider head-end.
+8. Only the provider query result may transition to `CONFIRMED` or `FAILED`.
 
 Paystack callbacks use HMAC-SHA512 over the exact body. MTN deployments can use a provider callback token. M-Pesa endpoints should sit behind an mTLS workload proxy; `SpiffeProxyVerifier` trusts identity headers only when the proxy also supplies its verification marker. The proxy must strip client-supplied identity headers.
 
@@ -29,11 +30,18 @@ Apply `agentbridge/migrations/001_payment_lifecycle.sql` and then `002_atomic_ca
 - an atomic callback/FSM/outbox bundle;
 - leased, bounded reconciliation jobs using `SELECT ... FOR UPDATE SKIP LOCKED`.
 
-Use a dedicated database role. Webhook payload JSON may contain regulated data and should be encrypted at rest, access logged, retention-limited, and excluded from application logs.
+Use a dedicated database role. The event table contains only a minimized callback projection, but it remains regulated transaction evidence and still requires encryption at rest, access logging, retention limits, and exclusion from application logs.
+
+`WebhookPayloadSanitizer` requires at least 32 bytes of deployment-owned HMAC key material. Inject `AGENTBRIDGE_PII_HMAC_KEY` from a secret manager; never put it in source control, graph state, or the database. HMAC-SHA256 is intentionally used instead of plain salted SHA-256 because phone numbers have a small enumerable keyspace. Include a non-secret `key_id` to support controlled key rotation.
 
 ## Framework adapter sketch
 
 ```python
+from agentbridge.webhooks import WebhookPayloadSanitizer
+
+sanitizer = WebhookPayloadSanitizer.from_environment(key_id="2026-09")
+webhook_handler = WebhookHandler(repository, verifiers, sanitizer)
+
 # Preserve request.body exactly; signature checks fail after JSON re-encoding.
 body = await request.body()
 result = await webhook_handler.handle("paystack", body, request.headers)
@@ -41,7 +49,7 @@ result = await webhook_handler.handle("paystack", body, request.headers)
 return Response(status_code=result.http_status)
 ```
 
-Always acknowledge authenticated duplicates with HTTP 200. Do not expose whether an unmatched reference belongs to a customer; the generic handler returns HTTP 202 and retains it for delayed matching.
+Always acknowledge authenticated duplicates and unmatched references with generic HTTP 200. Do not expose whether a reference belongs to a customer; unmatched sanitized evidence is retained for delayed matching.
 
 ## PostgreSQL concurrency harness
 

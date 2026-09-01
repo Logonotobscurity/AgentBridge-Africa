@@ -15,13 +15,22 @@ from agentbridge.core.payment_lifecycle import (
     assert_transition,
 )
 from agentbridge.webhooks.handlers import OutboxReconciliationWorker, PaymentReconciler, WebhookHandler
+from agentbridge.webhooks.redaction import WebhookPayloadSanitizer, WebhookRedactionError
 from agentbridge.webhooks.security import PaystackSignatureVerifier, WebhookAuthenticationError
+
+
+PII_HMAC_KEY = b"test-only-pii-hmac-key-material-32-bytes"
+
+
+def _sanitizer() -> WebhookPayloadSanitizer:
+    return WebhookPayloadSanitizer(PII_HMAC_KEY, key_id="test-v1")
 
 
 class MemoryRepository:
     def __init__(self, transaction):
         self.transaction = transaction
         self.events = {}
+        self.last_event = None
 
     async def get_by_provider_reference(self, provider, reference):
         if self.transaction.provider == provider and self.transaction.provider_reference == reference:
@@ -29,6 +38,7 @@ class MemoryRepository:
         return None
 
     async def ingest_webhook(self, event: WebhookEvent):
+        self.last_event = event
         key = (event.provider, event.event_id)
         stored = self.events.get(key)
         identity = (event.provider_reference, event.payload_sha256)
@@ -84,7 +94,7 @@ def test_authenticated_webhook_is_hint_then_head_end_confirms():
         body = json.dumps({"event": "charge.success", "data": {"reference": "pay-ref-1"}}).encode()
         signature = hmac.new(secret, body, hashlib.sha512).hexdigest()
         repository = MemoryRepository(_transaction())
-        handler = WebhookHandler(repository, {"paystack": PaystackSignatureVerifier(secret)})
+        handler = WebhookHandler(repository, {"paystack": PaystackSignatureVerifier(secret)}, _sanitizer())
 
         result = await handler.handle("paystack", body, {"x-paystack-signature": signature})
         assert result.reconciliation_required is True
@@ -178,7 +188,7 @@ def test_outbox_worker_completes_only_after_head_end_confirmation():
 def test_bad_webhook_signature_fails_before_database_write():
     async def scenario():
         repository = MemoryRepository(_transaction())
-        handler = WebhookHandler(repository, {"paystack": PaystackSignatureVerifier(b"secret")})
+        handler = WebhookHandler(repository, {"paystack": PaystackSignatureVerifier(b"secret")}, _sanitizer())
         try:
             await handler.handle(
                 "paystack",
@@ -200,7 +210,7 @@ def test_duplicate_orphan_callback_can_be_matched_later():
         body = json.dumps({"event": "charge.success", "data": {"reference": "late-ref"}}).encode()
         signature = hmac.new(secret, body, hashlib.sha512).hexdigest()
         repository = MemoryRepository(_transaction())
-        handler = WebhookHandler(repository, {"paystack": PaystackSignatureVerifier(secret)})
+        handler = WebhookHandler(repository, {"paystack": PaystackSignatureVerifier(secret)}, _sanitizer())
 
         first = await handler.handle("paystack", body, {"x-paystack-signature": signature})
         assert first.http_status == 200 and first.matched is False
@@ -217,7 +227,7 @@ def test_duplicate_event_id_with_changed_payload_is_rejected():
     async def scenario():
         secret = b"secret"
         repository = MemoryRepository(_transaction())
-        handler = WebhookHandler(repository, {"paystack": PaystackSignatureVerifier(secret)})
+        handler = WebhookHandler(repository, {"paystack": PaystackSignatureVerifier(secret)}, _sanitizer())
         headers = {"x-paystack-event-id": "event-1"}
         first = json.dumps({"data": {"reference": "pay-ref-1"}}).encode()
         headers["x-paystack-signature"] = hmac.new(secret, first, hashlib.sha512).hexdigest()
