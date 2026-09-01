@@ -105,6 +105,7 @@ The 402 response includes the LLM and processing-fee breakdown but never payment
 - No destructive dispatch without server-validated confirmation evidence.
 - No provider selected by model-generated arguments.
 - No callback fulfils value without idempotent reconciliation and provider verification.
+- Callback evidence, FSM advancement, and reconciliation work commit atomically through the outbox.
 - No raw financial PII or authentication secret in traces/eval datasets.
 - No graph starts in production without PostgreSQL persistence.
 - No budget exception is downgraded to a warning.

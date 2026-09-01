@@ -1,6 +1,6 @@
 """Authenticated webhook ingestion and provider-head reconciliation."""
 
-from agentbridge.webhooks.handlers import WebhookHandler, WebhookResult
+from agentbridge.webhooks.handlers import OutboxReconciliationWorker, WebhookHandler, WebhookResult
 from agentbridge.webhooks.security import (
     PaystackSignatureVerifier,
     SharedTokenVerifier,
@@ -9,6 +9,7 @@ from agentbridge.webhooks.security import (
 )
 
 __all__ = [
+    "OutboxReconciliationWorker",
     "PaystackSignatureVerifier",
     "SharedTokenVerifier",
     "SpiffeProxyVerifier",

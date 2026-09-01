@@ -64,7 +64,7 @@ AgentBridge-Africa/
 │   └── compliance/
 │       ├── oscal_exporter.py
 │       └── schemas/                  # OSCAL JSON v1.2.1 subset
-├── agentbridge/migrations/001_payment_lifecycle.sql
+├── agentbridge/migrations/            # ledger + atomic callback/outbox SQL
 ├── src/bridge/                       # deprecated compatibility imports only
 ├── tools/                            # deprecated compatibility imports/stub
 ├── evals/                            # golden + production sampler

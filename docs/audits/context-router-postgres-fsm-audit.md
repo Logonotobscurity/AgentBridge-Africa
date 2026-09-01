@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-01  
 **Scope:** Proposed `ContextProfile` routing schema, PostgreSQL DDL, FSM trigger, and locked reconciliation function  
-**Current baseline:** AgentBridge Africa 2.3.0 (`RailRouter`, `PaymentLifecycle`, `PostgresSaver`, `PostgresPaymentRepository`, authenticated webhook ingestion)
+**Current baseline:** AgentBridge Africa 2.5.0 (`RailRouter`, live capability packs, `PaymentLifecycle`, `PostgresSaver`, atomic callback/FSM/outbox ingestion)
 
 ## Executive decision
 
@@ -89,12 +89,12 @@ Current webhook handling intentionally stops at `CALLBACK_RECEIVED`; `PaymentRec
 - [ ] Add `PaymentIntent` and typed `Money` models using `Decimal`; prohibit floats at the provider boundary.
 - [ ] Add an allowlisted `CapabilityPackRegistry`; remove all runtime import-path and endpoint selection from transaction data.
 - [ ] Make manual rail override an operator-only policy object requiring `admin:rail-override`, justification, and audit evidence.
-- [ ] Add a database transition trigger with an explicit allowlist matching `ALLOWED_TRANSITIONS`.
-- [ ] Add generic `provider_receipt` and a partial unique index for confirmed transactions.
-- [ ] Add `retry_count`, `max_retries`, `next_reconcile_at`, and `last_reconcile_error_code`; never classify transport errors as financial failure.
-- [ ] Return generic HTTP 200 for authenticated unmatched callbacks after durable event storage.
-- [ ] Add an atomic repository operation that records the callback, transitions matched state, and inserts an outbox reconciliation job in one transaction; duplicate retries must repair/read the existing outcome rather than exit early.
-- [ ] Add an outbox worker so provider polling starts only after the callback transaction commits.
+- [x] Add a database transition trigger with an explicit allowlist matching `ALLOWED_TRANSITIONS`.
+- [x] Add generic `provider_receipt` and a partial unique index for confirmed transactions.
+- [x] Add `retry_count`, `max_retries`, `next_reconcile_at`, and `last_reconcile_error_code`; never classify transport errors as financial failure.
+- [x] Return generic HTTP 200 for authenticated unmatched callbacks after durable event storage.
+- [x] Add an atomic repository operation that records the callback, transitions matched state, and inserts an outbox reconciliation job in one transaction; duplicate retries repair/read the existing outcome rather than exiting early.
+- [x] Add a leased `SKIP LOCKED` outbox worker so provider polling starts only after the callback transaction commits.
 - [ ] Add migration tests against a real supported PostgreSQL version in CI.
 
 **Exit criteria:** concurrent duplicate webhook and poll workers produce one final ledger transition and one fulfilment event; an unverified callback can never produce `CONFIRMED`.

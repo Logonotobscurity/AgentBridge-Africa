@@ -20,7 +20,7 @@ from agentbridge.core.router import AgentRouter
 from agentbridge.core.state import AGENT_STATE_SCHEMA_VERSION, AgentState
 from agentbridge.core.telemetry import Tracer
 
-__version__ = "2.4.0"
+__version__ = "2.5.0"
 
 __all__ = [
     "AGENT_STATE_SCHEMA_VERSION",

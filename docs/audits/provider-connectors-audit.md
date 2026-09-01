@@ -79,7 +79,7 @@ agentbridge/payments/
 
 - [ ] Provision secret-manager references and short-lived workload identities.
 - [ ] Register capability packs through deployment dependency injection.
-- [ ] Bind connector results to the atomic ledger/outbox workflow.
+- [x] Bind normalized connector results to the atomic callback/FSM/outbox reconciliation workflow.
 - [ ] Add per-provider circuit, latency, reconciliation-age, and error-code telemetry without payloads.
 - [ ] Complete provider sandbox certification, limited canary traffic, settlement reconciliation, and rollback drills.
 
