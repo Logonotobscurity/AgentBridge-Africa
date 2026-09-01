@@ -14,7 +14,7 @@ from agentbridge.tools.mcp_types import Tool
 
 AMOUNT_SCHEMA = {
     "type": "object",
-    "required": ["amount", "currency", "phone"],
+    "required": ["amount", "currency", "phone", "idempotency_key"],
     "properties": {
         "amount": {"type": "number", "minimum": 1},
         "currency": {"type": "string", "enum": ["KES", "NGN", "GHS", "UGX", "USD"]},
@@ -136,6 +136,35 @@ QUOTE_PAYMENT = Tool(
     annotations={"readOnly": True, "destructive": False, "idempotent": True},
 )
 
+PROCESS_PAYMENT = Tool(
+    name="process_payment",
+    description="Process a payment through the best healthy regional provider rail",
+    inputSchema={
+        "type": "object",
+        "required": ["amount", "currency", "destination_country", "recipient", "idempotency_key"],
+        "properties": {
+            "amount": {"type": "number", "minimum": 1},
+            "currency": {"type": "string", "enum": ["KES", "NGN", "GHS", "UGX", "ZAR", "USD"]},
+            "destination_country": {"type": "string", "pattern": "^[A-Z]{2}$"},
+            "recipient": {"type": "string", "minLength": 3},
+            "reference": {"type": "string"},
+            "idempotency_key": {"type": "string", "minLength": 8},
+        },
+    },
+    annotations={"readOnly": False, "destructive": True, "idempotent": False},
+)
+
+CHECK_TRANSACTION = Tool(
+    name="check_transaction",
+    description="Check a transaction status without changing payment state",
+    inputSchema={
+        "type": "object",
+        "required": ["transaction_id"],
+        "properties": {"transaction_id": {"type": "string", "minLength": 1}},
+    },
+    annotations={"readOnly": True, "destructive": False, "idempotent": True},
+)
+
 EXECUTE_PAYMENT = Tool(
     name="execute_payment",
     description="Execute a previously quoted payment. Requires idempotency_key.",
@@ -154,8 +183,10 @@ EXECUTE_PAYMENT = Tool(
 
 PAYMENT_TOOLS = [
     QUOTE_PAYMENT,
+    CHECK_TRANSACTION,
     MPESA_QUERY_STATUS,
     PAYSTACK_VERIFY,
+    PROCESS_PAYMENT,
     MPESA_STK_PUSH,
     MPESA_B2C_DISBURSE,
     PAYSTACK_INITIALIZE,

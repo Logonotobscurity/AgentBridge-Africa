@@ -1,8 +1,8 @@
-from src.bridge.graph import node_sequence
-from src.bridge.nodes import run_budget_exhaustion, run_quote_goal
-from src.bridge.policy_gate import decide
-from src.bridge.state import ContextProfile
-from tools.payments_adapter import execute, quote
+from agentbridge.core.graph import node_sequence
+from agentbridge.core.orchestrator import run_budget_exhaustion, run_quote_goal
+from agentbridge.core.policy import decide
+from agentbridge.core.state import ContextProfile
+from agentbridge.tools.payment_adapter import execute, quote
 
 
 def test_quote_ok():
@@ -63,5 +63,30 @@ def test_policy_escalates_intermittent_execute():
     assert decision == "escalate"
 
 
+def test_orchestrator_honors_policy_escalation():
+    profile = ContextProfile(connectivity="intermittent", hitl_amount_threshold=100_000)
+    state = run_quote_goal("pay", profile, amount=100, execute_payment=True)
+    assert state.status == "awaiting_hitl"
+    assert state.hitl_pending is not None
+
+
 def test_node_sequence():
     assert node_sequence()[0] == "policy_gate"
+
+
+def test_payment_limit_fails_before_provider_and_emits_poam(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    profile = ContextProfile(aml_daily_limit=100)
+    state = run_quote_goal("oversized transfer", profile, amount=101)
+    assert state.status == "failed"
+    assert state.stop_reason and "payment_limit_exceeded" in state.stop_reason
+    assert len(state.steps) == 0
+    assert (tmp_path / ".venturalitica" / "runs" / state.run_id / "poam.oscal.json").exists()
+
+
+def test_legacy_imports_delegate_to_canonical_runtime():
+    from src.bridge.nodes import run_quote_goal as legacy_run
+    from tools.payments_adapter import quote as legacy_quote
+
+    assert legacy_run is run_quote_goal
+    assert legacy_quote is quote

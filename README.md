@@ -21,7 +21,7 @@ oauth/pkce → policy_gate → planner → worker → HITL → verifier → Budg
 | Resources | Read-only state, profiles, balances, OSCAL artifacts |
 | `BudgetGuardian` | Hard stop + **HTTP 402** + partial OSCAL evidence |
 | OAuth 2.1 PKCE | Remote MCP endpoints are not unauthenticated proxies |
-| HITL gate | Destructive tools above amount threshold pause for an operator |
+| HITL gate | Every destructive tool requires verified OTP/PIN/OAuth confirmation |
 | Circuit breaker | Per-provider open/half-open; fallback queue on outage |
 | `AgentState` v2 | Versioned public API; new fields optional with defaults |
 | OSCAL exporter | Assessment Results + POA&M under `.venturalitica/runs/{run_id}/` |
@@ -34,23 +34,59 @@ AgentBridge-Africa/
 ├── .well-known/mcp.json              # MCP Server Card
 ├── agentbridge/
 │   ├── core/
-│   │   ├── budget_guardian.py        # HTTP 402 hard-stop
+│   │   ├── orchestrator.py           # planner / worker / verifier lifecycle
+│   │   ├── graph.py                  # checkpointed payment lifecycle graph
+│   │   ├── checkpointing.py          # PostgresSaver / AsyncPostgresSaver
+│   │   ├── rail_switch.py            # currency/country/health provider router
+│   │   ├── policy.py                 # allow / block / escalate
+│   │   ├── budget_guardian.py        # typed HTTP 402 cost hard-stop
 │   │   ├── router.py                 # A2A routing
 │   │   ├── oauth.py                  # OAuth 2.1 + PKCE
 │   │   ├── hitl.py                   # destructive-tool interceptors
 │   │   ├── circuit_breaker.py
 │   │   ├── telemetry.py              # OTEL-shaped traces
 │   │   └── state.py                  # AgentState schema v2
+│   ├── payments/                     # live-ready async capability packs
+│   │   ├── engine.py                 # production ContextProfile facade
+│   │   ├── daraja.py                 # Safaricom OAuth, STK, status query
+│   │   ├── paystack.py               # initialize + verify transaction
+│   │   ├── mtn_momo.py               # request-to-pay + status query
+│   │   ├── runtime.py                # secrets, egress allowlist, transport
+│   │   └── registry.py               # allowlisted dependency injection
 │   ├── tools/
-│   │   ├── payment_mcp.py            # annotated payment tools
+│   │   ├── payment_mcp.py            # unified annotated MCP contracts
+│   │   ├── payment_engine.py         # provider-neutral payment facade
+│   │   ├── payment_adapter.py        # sandbox provider implementation
 │   │   └── resources.py              # read-only resources
+│   ├── webhooks/
+│   │   ├── security.py               # HMAC/token/SPIFFE verification
+│   │   └── handlers.py               # dedupe + reconcile, never callback-final
 │   └── compliance/
 │       ├── oscal_exporter.py
 │       └── schemas/                  # OSCAL JSON v1.2.1 subset
-├── src/bridge/                       # existing planner/worker/verifier
+├── agentbridge/migrations/            # ledger + atomic callback/outbox SQL
+├── src/bridge/                       # deprecated compatibility imports only
+├── tools/                            # deprecated compatibility imports/stub
 ├── evals/                            # golden + production sampler
+├── frontend/                         # Next.js operator console
 └── tests/test_budget_guardian.py
 ```
+
+## Operator console
+
+The responsive Next.js console in [`frontend/`](frontend/) demonstrates the production operator workflow: payment lifecycle visibility, provider health, run-cost budgets, reconciliation, immutable audit evidence, and five-step HITL approval. Demonstration identifiers are scrubbed; verifier references are accepted instead of raw OTPs, PINs, credentials, or recipient PII.
+
+```bash
+cd frontend
+npm install
+npm run dev       # http://localhost:3000
+
+# Production validation
+npm run lint
+npm run build
+```
+
+Dashboard data is typed mock data for now. Approval actions update local UI state only; they do not invoke a payment connector.
 
 ## Quick start
 
@@ -59,6 +95,8 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 make eval
 python -m pytest -q
+# Live connector transport (credentials are still deployment-owned):
+pip install '.[connectors]'
 ```
 
 Discovery card (no live connection required):
@@ -81,7 +119,7 @@ MPESA_QUERY_STATUS.annotations
 # readOnly=True   destructive=False idempotent=True
 ```
 
-Destructive tools require `idempotency_key` and `payments:execute` scope. Amounts above `hitl_amount_threshold` pause in `awaiting_hitl`.
+Destructive tools require `idempotency_key`, `payments:execute` scope, and verifier-backed OTP/PIN/OAuth confirmation. Every destructive call pauses in `awaiting_hitl`; amounts above `hitl_amount_threshold` receive enhanced review.
 
 ## Budget → HTTP 402
 
@@ -132,6 +170,6 @@ Latest sandbox run: **7 / 7 expected outcomes (100%)**.
 - OAuth 2.1 + PKCE on remote MCP; tokens bound to exact scopes
 - OpenTelemetry-shaped traces on every LLM / tool / policy span
 
-See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
+See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/architecture.md`](docs/architecture.md), [`docs/production-architecture.md`](docs/production-architecture.md), [`docs/webhooks.md`](docs/webhooks.md), the [`Production Activation Verification audit`](docs/audits/production-activation-verification.md), the [`Context Router & PostgreSQL FSM audit`](docs/audits/context-router-postgres-fsm-audit.md), the [`Provider Connector audit`](docs/audits/provider-connectors-audit.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
 
-Sandbox only — synthetic quotes, no live payment rails, no real PII.
+Default execution remains sandboxed. Live connector classes perform no network I/O until explicitly registered with deployment-owned secrets, policy, callback hosts, and egress configuration.

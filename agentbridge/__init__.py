@@ -13,13 +13,14 @@ from agentbridge.core.budget_guardian import (
     PaymentRequiredStop,
     guard,
 )
-from agentbridge.core.hitl import HitlGate, HitlTicket
+from agentbridge.core.hitl import ConfirmationEvidence, HitlGate, HitlTicket
 from agentbridge.core.oauth import OAuth21Provider, TokenClaims
+from agentbridge.core.orchestrator import run_budget_exhaustion, run_quote_goal
 from agentbridge.core.router import AgentRouter
 from agentbridge.core.state import AGENT_STATE_SCHEMA_VERSION, AgentState
 from agentbridge.core.telemetry import Tracer
 
-__version__ = "2.0.0"
+__version__ = "2.5.0"
 
 __all__ = [
     "AGENT_STATE_SCHEMA_VERSION",
@@ -27,6 +28,7 @@ __all__ = [
     "AgentRouter",
     "AgentState",
     "BudgetGuardian",
+    "ConfirmationEvidence",
     "HitlGate",
     "HitlTicket",
     "OAuth21Provider",
@@ -34,4 +36,6 @@ __all__ = [
     "TokenClaims",
     "Tracer",
     "guard",
+    "run_budget_exhaustion",
+    "run_quote_goal",
 ]

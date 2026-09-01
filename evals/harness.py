@@ -10,8 +10,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.bridge.nodes import run_budget_exhaustion, run_quote_goal  # noqa: E402
-from src.bridge.state import ContextProfile  # noqa: E402
+from agentbridge.core.orchestrator import run_budget_exhaustion, run_quote_goal  # noqa: E402
+from agentbridge.core.state import ContextProfile  # noqa: E402
 
 
 def load_profile(rel: str) -> ContextProfile:

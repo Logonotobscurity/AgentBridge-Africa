@@ -9,15 +9,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Literal
 
+from agentbridge.core.budget_guardian import BudgetGuardian, payment_required_body
 from agentbridge.core.circuit_breaker import CircuitBreaker, CircuitOpenError
-from agentbridge.core.hitl import HitlGate
+from agentbridge.core.hitl import ConfirmationEvidence, HitlGate
 from agentbridge.core.oauth import TokenClaims, scope_allows
 from agentbridge.core.state import AgentState
 from agentbridge.core.telemetry import Tracer
 from agentbridge.core.timeouts import TimeoutBudget, TimeoutError, call_with_timeout
 from agentbridge.tools.mcp_types import Tool, annotations_dict
+from agentbridge.tools.payment_mcp import require_idempotency
 
 Decision = Literal["dispatch", "block", "escalate", "hitl", "degrade"]
+ConfirmationValidator = Callable[[ConfirmationEvidence, AgentState, Any], bool]
 
 AGENT_ROLES = {
     "planner": {"payments:quote", "payments:status", "compliance:read"},
@@ -41,10 +44,12 @@ class RouteResult:
 @dataclass
 class AgentRouter:
     hitl: HitlGate = field(default_factory=HitlGate)
+    budget: BudgetGuardian = field(default_factory=BudgetGuardian)
     tracer: Tracer = field(default_factory=Tracer)
     breakers: dict[str, CircuitBreaker] = field(default_factory=dict)
     timeout: TimeoutBudget = field(default_factory=TimeoutBudget)
     fallback_handler: Callable[[AgentState, str, dict[str, Any]], Any] | None = None
+    confirmation_validator: ConfirmationValidator | None = None
 
     def breaker_for(self, provider: str) -> CircuitBreaker:
         if provider not in self.breakers:
@@ -72,10 +77,19 @@ class AgentRouter:
         arguments: dict[str, Any] | None = None,
         *,
         token: TokenClaims | None = None,
+        confirmation: ConfirmationEvidence | None = None,
     ) -> RouteResult:
         anns = annotations_dict(tool)
         agent = self.select_agent(tool)
         arguments = arguments or {}
+
+        # A destructive primitive without a stable request key is unsafe to
+        # retry and must never reach a provider. Keep this in the central
+        # router rather than relying on each adapter to remember the check.
+        try:
+            require_idempotency(tool.name, arguments)
+        except ValueError as exc:
+            return RouteResult("block", agent, str(exc), tool.name, anns)
 
         if token is not None:
             needed = "payments:execute" if anns.get("destructive") else "payments:quote"
@@ -84,17 +98,38 @@ class AgentRouter:
             if not scope_allows(token, needed):
                 return RouteResult("block", agent, f"token missing scope {needed}", tool.name, anns)
 
-        if state.profile.connectivity == "offline_first" and not anns.get("readOnly"):
-            return RouteResult(
-                "degrade",
-                "fallback",
-                "offline_first: queue side-effect and serve cached read path",
-                tool.name,
-                anns,
+        if state.profile.connectivity == "offline_first":
+            reason = (
+                "offline_first: serve cached read path"
+                if anns.get("readOnly")
+                else "offline_first: queue side-effect"
             )
+            return RouteResult("degrade", "fallback", reason, tool.name, anns)
 
         amount = _coerce_amount(arguments)
-        ticket = self.hitl.evaluate(tool, amount=amount, currency=state.profile.currency, threshold=state.profile.hitl_amount_threshold)
+        if anns.get("destructive") and confirmation is not None:
+            if self.confirmation_validator is None:
+                return RouteResult(
+                    "block", agent, "confirmation verifier is not configured", tool.name, anns
+                )
+            if not self.confirmation_validator(confirmation, state, tool):
+                return RouteResult("block", agent, "confirmation evidence rejected", tool.name, anns)
+            state.confirmations.append(
+                {
+                    "tool": tool.name,
+                    "method": confirmation.method,
+                    "reference": confirmation.reference,
+                    "subject": confirmation.subject,
+                }
+            )
+            ticket = None
+        else:
+            ticket = self.hitl.evaluate(
+                tool,
+                amount=amount,
+                currency=state.profile.currency,
+                threshold=state.profile.hitl_amount_threshold,
+            )
         if ticket is not None:
             state.hitl_pending = ticket.to_pending()
             state.status = "awaiting_hitl"
@@ -111,9 +146,18 @@ class AgentRouter:
         *,
         provider: str = "default",
         token: TokenClaims | None = None,
+        confirmation: ConfirmationEvidence | None = None,
     ) -> tuple[AgentState, Any]:
         arguments = arguments or {}
-        route = self.gate(state, tool, arguments, token=token)
+
+        # This is the final pre-provider interceptor. A resumed graph whose
+        # budget was previously exhausted must return the same HTTP 402 stop
+        # signal without evaluating policy or invoking another tool.
+        self.budget.intercept(state)
+        if state.status == "budget_exceeded":
+            return state, payment_required_body(state)
+
+        route = self.gate(state, tool, arguments, token=token, confirmation=confirmation)
         state.routed_agent = route.agent
         state.circuit_states = {k: v.state for k, v in self.breakers.items()}
 
@@ -124,11 +168,13 @@ class AgentRouter:
         if route.decision == "hitl":
             return state, None
         if route.decision == "degrade":
-            state.fallback_queue.append({"tool": tool.name, "arguments": arguments})
             state.status = "degraded"
             if self.fallback_handler is not None:
                 return state, self.fallback_handler(state, tool.name, arguments)
-            return state, {"queued": True, "tool": tool.name}
+            if route.annotations.get("readOnly"):
+                return state, {"cached": False, "tool": tool.name, "reason": route.reason}
+            state.fallback_queue.append({"tool": tool.name, "arguments": arguments})
+            return state, {"queued": True, "tool": tool.name, "reason": route.reason}
 
         breaker = self.breaker_for(provider)
         span = self.tracer.start(tool.name, attributes={"agent": route.agent, "provider": provider})

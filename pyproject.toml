@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentbridge-africa"
-version = "2.0.0"
+version = "2.5.0"
 description = "Hardened MCP payment bridge for African rails with OSCAL audit packs"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,13 +17,29 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+mcp = ["mcp>=1.12,<2"]
+connectors = ["httpx>=0.27,<1"]
+postgres = [
+  "langgraph>=0.6",
+  "langgraph-checkpoint-postgres>=2.0",
+  "psycopg[binary,pool]>=3.2",
+]
+observability = [
+  "langfuse>=3.0",
+  "opentelemetry-api>=1.27",
+  "opentelemetry-sdk>=1.27",
+  "opentelemetry-exporter-otlp-proto-http>=1.27",
+]
 
 [tool.setuptools.packages.find]
 include = ["agentbridge*", "src*", "tools*", "evals*"]
 
 [tool.setuptools.package-data]
-agentbridge = ["compliance/schemas/*.json"]
+agentbridge = ["compliance/schemas/*.json", "migrations/*.sql"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+  "integration: requires a real PostgreSQL service",
+]
