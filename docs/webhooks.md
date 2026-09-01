@@ -43,6 +43,24 @@ return Response(status_code=result.http_status)
 
 Always acknowledge authenticated duplicates with HTTP 200. Do not expose whether an unmatched reference belongs to a customer; the generic handler returns HTTP 202 and retains it for delayed matching.
 
+## PostgreSQL concurrency harness
+
+CI starts PostgreSQL 16 and sets `AGENTBRIDGE_TEST_POSTGRES_DSN`. The integration suite applies migrations 001/002 in a disposable schema and tests:
+
+- ten simultaneous copies of one callback produce one event and one outbox job;
+- provider polling and delayed callback ingestion serialize without overwriting `CONFIRMED`;
+- closing a connection between state mutation and outbox insertion rolls back all writes;
+- simultaneous workers lease distinct jobs with `FOR UPDATE SKIP LOCKED`.
+
+Run the same suite locally with Docker and psycopg installed:
+
+```bash
+pip install '.[postgres]'
+make test-postgres
+```
+
+The local script binds PostgreSQL only to `127.0.0.1`, waits for readiness, runs the integration module, and always removes the container.
+
 ## Polling and settlement
 
 Run a sweeper for `SUBMITTED` records older than the callback SLA and for `CALLBACK_RECEIVED` records not yet reconciled. Bound retries and route exhausted cases into OSCAL findings/manual review. Nightly settlement ingestion should independently compare provider statement totals and references against confirmed internal records.

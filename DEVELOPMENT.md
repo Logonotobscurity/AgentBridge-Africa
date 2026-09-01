@@ -43,6 +43,7 @@ tests/                     test_budget_guardian.py + MCP/OAuth/OSCAL
 - [x] OTEL-shaped traces
 - [x] Production trace sampler
 - [x] AgentState schema_version = 2 with optional new fields
+- [x] PostgreSQL 16 migration, retry-storm, rollback, row-lock, and SKIP LOCKED CI harness
 
 ## References (patterns borrowed)
 
