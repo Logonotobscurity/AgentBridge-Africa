@@ -16,6 +16,8 @@ jobs:
       - name: Install
         run: pip install -r requirements.txt
       - name: Tests
-        run: python -m pytest -q
+        run: PYTHONPATH=. python -m pytest -q
       - name: Golden trajectories
         run: make eval
+      - name: Server card present
+        run: python -c "import json; json.load(open('.well-known/mcp.json'))"
