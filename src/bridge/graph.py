@@ -1,19 +1,20 @@
 """LangGraph-shaped wiring. Default path is the sync pipeline in nodes.py.
 
 Node sequence:
-    policy_gate → planner → worker → verifier → budget → (execute?) → END
+    policy_gate → planner → worker → hitl → verifier → budget → compliance → END
 
-`govern_check` is inlined as BudgetGuardian + PolicyGate. Optional compile
-when `langgraph` is installed; otherwise `compile_graph()` returns None and
-callers use `run_quote_goal`.
+``govern_check`` is inlined as BudgetGuardian + PolicyGate + HITL. Optional
+compile when ``langgraph`` is installed; otherwise ``compile_graph()`` returns
+None and callers use ``run_quote_goal``.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable
 
 
 def node_sequence() -> list[str]:
-    return ["policy_gate", "planner", "worker", "verifier", "budget"]
+    return ["policy_gate", "planner", "worker", "hitl", "verifier", "budget", "compliance"]
 
 
 def compile_graph() -> Callable[..., Any] | None:

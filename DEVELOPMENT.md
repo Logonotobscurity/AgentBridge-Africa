@@ -1,78 +1,53 @@
 # AgentBridge Africa — DEVELOPMENT.md
 
-> Multi-agent bridge: LangGraph-shaped pipeline + MCP tools + ContextProfile + budgets + trajectory evals.
-> Metrics: **trajectory success rate**, **p50 latency**, **median cost per success**.
+> Multi-agent bridge: LangGraph-shaped pipeline + native MCP tools + ContextProfile
+> + HTTP 402 budgets + NIST OSCAL + golden / production-trace evals.
 > Local-context first (locale, rails, connectivity) — not a generic chatbot.
 
 ## Principles
 
-1. Checkpoint after every tool call. Resume is a feature.
-2. Budget is a hard stop (`budget_exceeded`), not a soft warning.
+1. Checkpoint after every tool call. Resume is a feature. `AgentState` is a
+   **versioned public API** — new fields optional with defaults.
+2. Budget is a hard stop (`budget_exceeded` + HTTP 402), not a soft warning.
+   Partial OSCAL evidence is always committed.
 3. `ContextProfile` lives in code paths, not only in prompts.
-4. Evals before feature expansion. Golden trajectories in YAML.
-5. Side-effect tools require idempotency keys; prefer real African MCP servers when available.
+4. Evals before feature expansion. Golden trajectories in YAML; production
+   traces sampled into the same harness.
+5. Side-effect tools require idempotency keys, `payments:execute` scope, and
+   HITL above threshold.
+6. Tools act; resources read. Annotate both.
 
 ## Layout
 
 ```
-agentbridge/
-  src/bridge/
-    graph.py
-    nodes.py          # planner, worker, verifier
-    state.py
-    budget.py         # BudgetGuardian
-    policy_gate.py    # allow | block | escalate
-  profiles/           # en-NG.json, en-KE.json, offline-NG.json
-  tools/              # MCP-shaped adapter + stub
-  evals/
-    trajectories/*.yaml
-    harness.py
-    results/latest.json
-  tests/
-  docs/playbook.md
-  Makefile
-```
-
-## ContextProfile (minimum)
-
-```json
-{
-  "locale": "en-NG",
-  "currency": "NGN",
-  "id_formats": ["NIN", "BVN"],
-  "payment_rails": ["bank", "ussd", "mobile_money"],
-  "connectivity": "intermittent",
-  "max_tool_latency_ms": 8000,
-  "max_run_cost_usd": 0.15,
-  "language_preference": "en"
-}
-```
-
-## Trajectory fixture (minimum)
-
-```yaml
-id: pay_quote_ngn_001
-goal: "Quote NGN transfer via preferred rail"
-profile: profiles/en-NG.json
-expected:
-  success: true
-  schema: QuoteResult
-inject_fault: null   # or tool_timeout | verifier_reject | provider_error | budget
+.well-known/mcp.json
+agentbridge/core/          budget_guardian, router, oauth, hitl, breaker, telemetry, state
+agentbridge/tools/         payment_mcp (annotated) + resources (read-only)
+agentbridge/compliance/    oscal_exporter + NIST JSON v1.2.1 subset schemas
+src/bridge/                planner, worker, verifier, policy_gate
+profiles/                  en-NG.json, en-KE.json, offline-NG.json
+evals/                     trajectories + harness + production_sampler
+tests/                     test_budget_guardian.py + MCP/OAuth/OSCAL
 ```
 
 ## Definition of done
 
 - [x] `evals/harness.py` exits 0
-- [x] README table: N, success rate, p50 latency, median cost_usd
-- [x] `docs/playbook.md`: resume, budget, add-a-tool
-- [x] No infinite retry on tool timeout (max one retry then fail step)
-- [x] ≥6 trajectories including failure modes
-- [x] Budget hard stop demonstrated
-- [x] Offline fails closed
-- [x] Multi-rail adapter envelope with safety hints
+- [x] Native MCP annotations on every payment primitive
+- [x] `.well-known/mcp.json` server card
+- [x] HTTP 402 budget guardian + partial OSCAL
+- [x] Automated POA&M on failed budget / AML / payment-limit controls
+- [x] OAuth 2.1 PKCE + least-privilege scopes
+- [x] HITL intercept for destructive tools over threshold
+- [x] Circuit breakers + timeout budgets + fallback queue
+- [x] OTEL-shaped traces
+- [x] Production trace sampler
+- [x] AgentState schema_version = 2 with optional new fields
 
 ## References (patterns borrowed)
 
+- MCP tool annotations / server cards
+- NIST OSCAL 1.2.1 assessment-results + plan-of-action-and-milestones
 - Africa Payments MCP / civic-agent-kit (local rails as MCP tools)
 - langgraph-agent-stack (per-run USD caps, golden eval YAML)
 - comply54 (allow/block/escalate policy node)

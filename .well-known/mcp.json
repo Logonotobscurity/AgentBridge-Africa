@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "2025-11-25",
+  "name": "agentbridge-africa",
+  "title": "AgentBridge Africa",
+  "description": "Hardened MCP payment bridge for African rails (M-Pesa, Paystack, NIBSS) with native safety annotations, OAuth 2.1 PKCE, HTTP 402 budget stops, and NIST OSCAL audit packs.",
+  "version": "2.0.0",
+  "transport": {
+    "type": "http",
+    "endpoint": "/mcp"
+  },
+  "auth": {
+    "type": "oauth2.1",
+    "pkceRequired": true,
+    "codeChallengeMethod": "S256",
+    "authorizationEndpoint": "/oauth/authorize",
+    "tokenEndpoint": "/oauth/token",
+    "scopes": {
+      "payments:quote": "Price a transfer (read-only)",
+      "payments:status": "Query transaction status (read-only)",
+      "payments:execute": "Move money (destructive, HITL-gated)",
+      "compliance:read": "Read OSCAL assessment results and POA&M",
+      "compliance:write": "Emit OSCAL artifacts",
+      "admin:budget": "Adjust run cost ceilings"
+    }
+  },
+  "capabilities": {
+    "tools": { "listChanged": true },
+    "resources": { "subscribe": true, "listChanged": true },
+    "logging": {}
+  },
+  "tools": [
+    {
+      "name": "quote_payment",
+      "description": "Price a transfer across an African rail without moving money",
+      "annotations": { "readOnly": true, "destructive": false, "idempotent": true }
+    },
+    {
+      "name": "mpesa_stk_query",
+      "description": "Check status of a pending M-Pesa transaction",
+      "annotations": { "readOnly": true, "destructive": false, "idempotent": true }
+    },
+    {
+      "name": "paystack_verify",
+      "description": "Verify a Paystack transaction by reference",
+      "annotations": { "readOnly": true, "destructive": false, "idempotent": true }
+    },
+    {
+      "name": "mpesa_stk_push",
+      "description": "Initiate M-Pesa mobile money STK push payment request",
+      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+    },
+    {
+      "name": "mpesa_b2c_disburse",
+      "description": "Disburse funds via M-Pesa B2C",
+      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+    },
+    {
+      "name": "paystack_initialize",
+      "description": "Initialize a Paystack checkout",
+      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+    },
+    {
+      "name": "bank_transfer_ngn",
+      "description": "Initiate a NGN bank credit transfer",
+      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+    },
+    {
+      "name": "execute_payment",
+      "description": "Execute a previously quoted payment",
+      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "agentbridge://runs/{run_id}/state",
+      "name": "run_state",
+      "annotations": { "readOnly": true, "idempotent": true }
+    },
+    {
+      "uri": "agentbridge://profiles/{locale}",
+      "name": "context_profile",
+      "annotations": { "readOnly": true, "idempotent": true }
+    },
+    {
+      "uri": "agentbridge://wallet/{account}/balance",
+      "name": "wallet_balance",
+      "annotations": { "readOnly": true, "idempotent": true }
+    },
+    {
+      "uri": "agentbridge://compliance/{run_id}/assessment-results",
+      "name": "oscal_assessment_results",
+      "annotations": { "readOnly": true, "idempotent": true }
+    },
+    {
+      "uri": "agentbridge://compliance/{run_id}/poam",
+      "name": "oscal_poam",
+      "annotations": { "readOnly": true, "idempotent": true }
+    }
+  ]
+}

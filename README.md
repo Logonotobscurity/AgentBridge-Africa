@@ -1,28 +1,107 @@
 # AgentBridge Africa
 
-Multi-agent bridge with **ContextProfile**, **hard budgets**, **MCP-shaped payment adapters**, and **golden trajectory evals**.
+Hardened multi-agent bridge for African payment rails: **native MCP safety annotations**, **`.well-known` server discovery**, **HTTP 402 budget hard-stops**, and **NIST OSCAL 1.2.1 audit packs**.
 
 Local-context first (locale, rails, connectivity) — not a generic chatbot.
 
-Inspired by: [africa-payments-mcp](https://github.com/kenyaclaw/africa-payments-mcp), [mpesa-mcp](https://github.com/gabrielmahia/mpesa-mcp), LangGraph budget control (`runcycles`), Harbor/LangChain golden-trajectory evals.
+Inspired by: [africa-payments-mcp](https://github.com/kenyaclaw/africa-payments-mcp), [mpesa-mcp](https://github.com/gabrielmahia/mpesa-mcp), LangGraph budget control, Harbor/LangChain golden-trajectory evals, NIST OSCAL.
 
 ## Runtime shape
 
 ```
-policy_gate → planner → worker → verifier → BudgetGuardian
-                 │
-                 └─ MCP-shaped tools: quote / execute / status
+oauth/pkce → policy_gate → planner → worker → HITL → verifier → BudgetGuardian (402)
+                 │                                              │
+                 └─ MCP tools / resources                       └─ OSCAL AR + POA&M
 ```
 
 | Piece | Role |
 |-------|------|
-| `ContextProfile` | locale, currency, rails, connectivity, cost/latency caps — **in code paths**, not only prompts |
-| Planner | Deterministic goal → step plan |
-| Worker | MCP-shaped tool call |
-| Verifier | Schema / business rule on step output |
-| `BudgetGuardian` | Hard stop when `spent_usd > max_run_cost_usd` |
-| PolicyGate | `allow` \| `block` \| `escalate` |
-| Eval harness | Golden YAML trajectories → success rate, p50 latency, median cost |
+| MCP Server Card | `.well-known/mcp.json` — indexable discovery, no client handshake required |
+| Tool annotations | `readOnly` / `destructive` / `idempotent` (+ MCP `*Hint` aliases) |
+| Resources | Read-only state, profiles, balances, OSCAL artifacts |
+| `BudgetGuardian` | Hard stop + **HTTP 402** + partial OSCAL evidence |
+| OAuth 2.1 PKCE | Remote MCP endpoints are not unauthenticated proxies |
+| HITL gate | Destructive tools above amount threshold pause for an operator |
+| Circuit breaker | Per-provider open/half-open; fallback queue on outage |
+| `AgentState` v2 | Versioned public API; new fields optional with defaults |
+| OSCAL exporter | Assessment Results + POA&M under `.venturalitica/runs/{run_id}/` |
+| Eval harness | Golden YAML trajectories + production-trace sampler |
+
+## Layout
+
+```
+AgentBridge-Africa/
+├── .well-known/mcp.json              # MCP Server Card
+├── agentbridge/
+│   ├── core/
+│   │   ├── budget_guardian.py        # HTTP 402 hard-stop
+│   │   ├── router.py                 # A2A routing
+│   │   ├── oauth.py                  # OAuth 2.1 + PKCE
+│   │   ├── hitl.py                   # destructive-tool interceptors
+│   │   ├── circuit_breaker.py
+│   │   ├── telemetry.py              # OTEL-shaped traces
+│   │   └── state.py                  # AgentState schema v2
+│   ├── tools/
+│   │   ├── payment_mcp.py            # annotated payment tools
+│   │   └── resources.py              # read-only resources
+│   └── compliance/
+│       ├── oscal_exporter.py
+│       └── schemas/                  # OSCAL JSON v1.2.1 subset
+├── src/bridge/                       # existing planner/worker/verifier
+├── evals/                            # golden + production sampler
+└── tests/test_budget_guardian.py
+```
+
+## Quick start
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+make eval
+python -m pytest -q
+```
+
+Discovery card (no live connection required):
+
+```bash
+cat .well-known/mcp.json
+```
+
+## MCP safety annotations
+
+Tools **act**. Resources **read**. Orchestrators gate on flags:
+
+```python
+from agentbridge.tools import MPESA_STK_PUSH, MPESA_QUERY_STATUS
+
+MPESA_STK_PUSH.annotations
+# readOnly=False  destructive=True  idempotent=False
+
+MPESA_QUERY_STATUS.annotations
+# readOnly=True   destructive=False idempotent=True
+```
+
+Destructive tools require `idempotency_key` and `payments:execute` scope. Amounts above `hitl_amount_threshold` pause in `awaiting_hitl`.
+
+## Budget → HTTP 402
+
+When `spent_usd > max_run_cost_usd` the guardian:
+
+1. Sets `status=budget_exceeded` and `http_status=402`
+2. Halts further tool invocations
+3. Writes partial OSCAL evidence to `.venturalitica/runs/{run_id}/`
+
+## OSCAL continuous compliance
+
+```python
+from agentbridge.compliance import Finding, export_oscal_results
+
+export_oscal_results(run_id, findings)
+# → assessment-results.oscal.json
+# → poam.oscal.json          (only when a control is not-satisfied)
+```
+
+Failed budget, AML, or payment-limit controls auto-generate a Plan of Action and Milestones linking each finding to a remediation task.
 
 ## Metrics (from `make eval`)
 
@@ -32,19 +111,8 @@ policy_gate → planner → worker → verifier → BudgetGuardian
 | `success_rate_pct` | Golden trajectories matching expected outcome |
 | `p50_latency_ms` | Median summed step latency |
 | `median_cost_usd` | Median spend under BudgetGuardian |
-| `median_cost_per_success_usd` | Median spend on `status=success` runs |
 
 Latest sandbox run: **7 / 7 expected outcomes (100%)**.
-
-## Quick start
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-make eval
-cat evals/results/latest.json
-python -m pytest -q
-```
 
 ## Profiles
 
@@ -54,37 +122,16 @@ python -m pytest -q
 | `profiles/en-KE.json` | en-KE | KES | mpesa, mobile_money, bank | intermittent |
 | `profiles/offline-NG.json` | en-NG | NGN | ussd | **offline_first** (fail closed) |
 
-## Trajectories
-
-| ID | Expected |
-|----|----------|
-| `pay_quote_ngn_001` | success |
-| `pay_quote_kes_001` | success |
-| `pay_timeout_001` | fail (`tool_timeout`) |
-| `pay_provider_err_001` | fail (`provider_unavailable`) |
-| `pay_verifier_001` | fail (`verifier_reject`) |
-| `pay_offline_001` | fail closed |
-| `pay_budget_001` | `budget_exceeded` |
-
 ## Safety
 
 - `execute` requires `idempotency_key`
-- Tool envelopes expose `read_only_hint` / `destructive_hint`
-- Budget is a **hard stop**, not a soft warning
+- Tool envelopes expose `readOnly` / `destructive` / `idempotent`
+- Budget is a **hard stop** (HTTP 402), not a soft warning
 - `offline_first` blocks remote and side-effect tools before the worker runs
-- No infinite retry on tool timeout (fail the step)
+- No infinite retry on tool timeout; circuit breakers open after repeated provider faults
+- OAuth 2.1 + PKCE on remote MCP; tokens bound to exact scopes
+- OpenTelemetry-shaped traces on every LLM / tool / policy span
 
-See [`DEVELOPMENT.md`](DEVELOPMENT.md) and [`docs/playbook.md`](docs/playbook.md).
-
-## Layout
-
-```
-src/bridge/     state, budget, nodes, policy_gate, graph
-tools/          payments_adapter (quote/execute/status) + legacy stub
-profiles/       en-NG, en-KE, offline-NG
-evals/          trajectories + harness → results/latest.json
-tests/
-docs/playbook.md
-```
+See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
 
 Sandbox only — synthetic quotes, no live payment rails, no real PII.
