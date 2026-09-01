@@ -4,7 +4,7 @@
 
 | Kind | Mutates | Scope | HITL |
 |------|---------|-------|------|
-| Tool (action) | maybe | `payments:execute` if destructive | yes, above threshold |
+| Tool (action) | maybe | `payments:execute` if destructive | every destructive call; enhanced review above threshold |
 | Resource (read) | never | `payments:status` / `compliance:read` | never |
 
 Annotations emitted on every tool (both AgentBridge aliases and MCP hints):
@@ -29,8 +29,8 @@ Annotations emitted on every tool (both AgentBridge aliases and MCP hints):
 | Scope | Permits |
 |-------|---------|
 | `payments:quote` | `quote_payment` |
-| `payments:status` | `mpesa_stk_query`, `paystack_verify`, wallet resource |
-| `payments:execute` | STK push, B2C, Paystack initialize, NGN transfer, `execute_payment` |
+| `payments:status` | `check_transaction`, `mpesa_stk_query`, `paystack_verify`, wallet resource |
+| `payments:execute` | `process_payment`, STK push, B2C, Paystack initialize, NGN transfer, `execute_payment` |
 | `compliance:read` | OSCAL assessment results / POA&M |
 | `admin:budget` | raise ceilings (never implied by quote/status) |
 

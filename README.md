@@ -21,7 +21,7 @@ oauth/pkce → policy_gate → planner → worker → HITL → verifier → Budg
 | Resources | Read-only state, profiles, balances, OSCAL artifacts |
 | `BudgetGuardian` | Hard stop + **HTTP 402** + partial OSCAL evidence |
 | OAuth 2.1 PKCE | Remote MCP endpoints are not unauthenticated proxies |
-| HITL gate | Destructive tools above amount threshold pause for an operator |
+| HITL gate | Every destructive tool requires verified OTP/PIN/OAuth confirmation |
 | Circuit breaker | Per-provider open/half-open; fallback queue on outage |
 | `AgentState` v2 | Versioned public API; new fields optional with defaults |
 | OSCAL exporter | Assessment Results + POA&M under `.venturalitica/runs/{run_id}/` |
@@ -35,9 +35,11 @@ AgentBridge-Africa/
 ├── agentbridge/
 │   ├── core/
 │   │   ├── orchestrator.py           # planner / worker / verifier lifecycle
-│   │   ├── graph.py                  # optional LangGraph adapter
+│   │   ├── graph.py                  # checkpointed payment lifecycle graph
+│   │   ├── checkpointing.py          # PostgresSaver / AsyncPostgresSaver
+│   │   ├── rail_switch.py            # currency/country/health provider router
 │   │   ├── policy.py                 # allow / block / escalate
-│   │   ├── budget_guardian.py        # HTTP 402 hard-stop
+│   │   ├── budget_guardian.py        # typed HTTP 402 cost hard-stop
 │   │   ├── router.py                 # A2A routing
 │   │   ├── oauth.py                  # OAuth 2.1 + PKCE
 │   │   ├── hitl.py                   # destructive-tool interceptors
@@ -45,7 +47,8 @@ AgentBridge-Africa/
 │   │   ├── telemetry.py              # OTEL-shaped traces
 │   │   └── state.py                  # AgentState schema v2
 │   ├── tools/
-│   │   ├── payment_mcp.py            # annotated payment contracts
+│   │   ├── payment_mcp.py            # unified annotated MCP contracts
+│   │   ├── payment_engine.py         # provider-neutral payment facade
 │   │   ├── payment_adapter.py        # sandbox provider implementation
 │   │   └── resources.py              # read-only resources
 │   └── compliance/
@@ -86,7 +89,7 @@ MPESA_QUERY_STATUS.annotations
 # readOnly=True   destructive=False idempotent=True
 ```
 
-Destructive tools require `idempotency_key` and `payments:execute` scope. Amounts above `hitl_amount_threshold` pause in `awaiting_hitl`.
+Destructive tools require `idempotency_key`, `payments:execute` scope, and verifier-backed OTP/PIN/OAuth confirmation. Every destructive call pauses in `awaiting_hitl`; amounts above `hitl_amount_threshold` receive enhanced review.
 
 ## Budget → HTTP 402
 
@@ -137,6 +140,6 @@ Latest sandbox run: **7 / 7 expected outcomes (100%)**.
 - OAuth 2.1 + PKCE on remote MCP; tokens bound to exact scopes
 - OpenTelemetry-shaped traces on every LLM / tool / policy span
 
-See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/architecture.md`](docs/architecture.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
+See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/architecture.md`](docs/architecture.md), [`docs/production-architecture.md`](docs/production-architecture.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
 
 Sandbox only — synthetic quotes, no live payment rails, no real PII.

@@ -46,14 +46,22 @@ def score_trace(trace: dict[str, Any]) -> dict[str, Any]:
             grounding = 0.0
             reasons.append("read_only_tool_mutated_state")
 
+    retry_count = int(trace.get("retry_count") or 0)
+    max_retries = int(trace.get("max_retries") or 3)
+    retry_behavior = 1.0
+    if retry_count > max_retries:
+        retry_behavior = 0.0
+        reasons.append("retry_budget_exceeded")
+
     return {
         "id": trace.get("id") or trace.get("span_id"),
         "tool": tool_name,
         "tool_argument_accuracy": argument_accuracy,
         "execution_grounding": grounding,
+        "failure_retry_behavior": retry_behavior,
         "missing_args": missing,
         "reasons": reasons,
-        "pass": argument_accuracy == 1.0 and grounding == 1.0,
+        "pass": argument_accuracy == 1.0 and grounding == 1.0 and retry_behavior == 1.0,
     }
 
 

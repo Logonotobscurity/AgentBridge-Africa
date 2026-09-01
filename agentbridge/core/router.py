@@ -11,7 +11,7 @@ from typing import Any, Callable, Literal
 
 from agentbridge.core.budget_guardian import BudgetGuardian, payment_required_body
 from agentbridge.core.circuit_breaker import CircuitBreaker, CircuitOpenError
-from agentbridge.core.hitl import HitlGate
+from agentbridge.core.hitl import ConfirmationEvidence, HitlGate
 from agentbridge.core.oauth import TokenClaims, scope_allows
 from agentbridge.core.state import AgentState
 from agentbridge.core.telemetry import Tracer
@@ -20,6 +20,7 @@ from agentbridge.tools.mcp_types import Tool, annotations_dict
 from agentbridge.tools.payment_mcp import require_idempotency
 
 Decision = Literal["dispatch", "block", "escalate", "hitl", "degrade"]
+ConfirmationValidator = Callable[[ConfirmationEvidence, AgentState, Any], bool]
 
 AGENT_ROLES = {
     "planner": {"payments:quote", "payments:status", "compliance:read"},
@@ -48,6 +49,7 @@ class AgentRouter:
     breakers: dict[str, CircuitBreaker] = field(default_factory=dict)
     timeout: TimeoutBudget = field(default_factory=TimeoutBudget)
     fallback_handler: Callable[[AgentState, str, dict[str, Any]], Any] | None = None
+    confirmation_validator: ConfirmationValidator | None = None
 
     def breaker_for(self, provider: str) -> CircuitBreaker:
         if provider not in self.breakers:
@@ -75,6 +77,7 @@ class AgentRouter:
         arguments: dict[str, Any] | None = None,
         *,
         token: TokenClaims | None = None,
+        confirmation: ConfirmationEvidence | None = None,
     ) -> RouteResult:
         anns = annotations_dict(tool)
         agent = self.select_agent(tool)
@@ -104,7 +107,29 @@ class AgentRouter:
             return RouteResult("degrade", "fallback", reason, tool.name, anns)
 
         amount = _coerce_amount(arguments)
-        ticket = self.hitl.evaluate(tool, amount=amount, currency=state.profile.currency, threshold=state.profile.hitl_amount_threshold)
+        if anns.get("destructive") and confirmation is not None:
+            if self.confirmation_validator is None:
+                return RouteResult(
+                    "block", agent, "confirmation verifier is not configured", tool.name, anns
+                )
+            if not self.confirmation_validator(confirmation, state, tool):
+                return RouteResult("block", agent, "confirmation evidence rejected", tool.name, anns)
+            state.confirmations.append(
+                {
+                    "tool": tool.name,
+                    "method": confirmation.method,
+                    "reference": confirmation.reference,
+                    "subject": confirmation.subject,
+                }
+            )
+            ticket = None
+        else:
+            ticket = self.hitl.evaluate(
+                tool,
+                amount=amount,
+                currency=state.profile.currency,
+                threshold=state.profile.hitl_amount_threshold,
+            )
         if ticket is not None:
             state.hitl_pending = ticket.to_pending()
             state.status = "awaiting_hitl"
@@ -121,6 +146,7 @@ class AgentRouter:
         *,
         provider: str = "default",
         token: TokenClaims | None = None,
+        confirmation: ConfirmationEvidence | None = None,
     ) -> tuple[AgentState, Any]:
         arguments = arguments or {}
 
@@ -131,7 +157,7 @@ class AgentRouter:
         if state.status == "budget_exceeded":
             return state, payment_required_body(state)
 
-        route = self.gate(state, tool, arguments, token=token)
+        route = self.gate(state, tool, arguments, token=token, confirmation=confirmation)
         state.routed_agent = route.agent
         state.circuit_states = {k: v.state for k, v in self.breakers.items()}
 

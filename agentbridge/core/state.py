@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 AGENT_STATE_SCHEMA_VERSION = 2
 
@@ -28,6 +28,7 @@ class ContextProfile(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     locale: str = "en-NG"
+    country: str = ""
     currency: str = "NGN"
     id_formats: list[str] = Field(default_factory=lambda: ["NIN", "BVN"])
     payment_rails: list[str] = Field(default_factory=lambda: ["bank", "ussd", "mobile_money"])
@@ -39,6 +40,15 @@ class ContextProfile(BaseModel):
     hitl_amount_threshold: float = Field(default=100_000.0, ge=0, allow_inf_nan=False)
     oauth_required: bool = False
     aml_daily_limit: float = Field(default=1_000_000.0, ge=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def derive_country(self) -> "ContextProfile":
+        if not self.country:
+            suffix = self.locale.rsplit("-", 1)[-1].upper()
+            self.country = suffix if len(suffix) == 2 else "NG"
+        else:
+            self.country = self.country.upper()
+        return self
 
 
 class StepResult(BaseModel):
@@ -78,6 +88,26 @@ class HitlPending(BaseModel):
     requested_at: str | None = None
 
 
+class PaymentLifecycle(BaseModel):
+    """Provider-neutral state required to resume asynchronous confirmations."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    intent_id: str
+    provider: str | None = None
+    rail: str | None = None
+    provider_reference: str | None = None
+    idempotency_key_ref: str | None = None
+    status: Literal[
+        "created", "awaiting_confirmation", "submitted", "pending_callback",
+        "succeeded", "failed", "reversed",
+    ] = "created"
+    retry_count: int = Field(default=0, ge=0)
+    max_retries: int = Field(default=3, ge=0)
+    callback_deadline: str | None = None
+    last_provider_status: str | None = None
+
+
 class AgentState(BaseModel):
     """Public, versioned graph state.
 
@@ -92,7 +122,9 @@ class AgentState(BaseModel):
     goal: str = ""
     profile: ContextProfile = Field(default_factory=ContextProfile)
     steps: list[StepResult] = Field(default_factory=list)
-    spent_usd: float = 0.0
+    spent_usd: float = Field(default=0.0, ge=0, allow_inf_nan=False)
+    llm_cost_usd: float = Field(default=0.0, ge=0, allow_inf_nan=False)
+    processing_fee_usd: float = Field(default=0.0, ge=0, allow_inf_nan=False)
     status: RunStatus = "running"
     stop_reason: str | None = None
     checkpoint: dict[str, Any] = Field(default_factory=dict)
@@ -105,6 +137,8 @@ class AgentState(BaseModel):
     fallback_queue: list[dict[str, Any]] = Field(default_factory=list)
     circuit_states: dict[str, str] = Field(default_factory=dict)
     partial_artifacts: list[str] = Field(default_factory=list)
+    confirmations: list[dict[str, str]] = Field(default_factory=list)
+    payment: PaymentLifecycle | None = None
     routed_agent: str | None = None
 
 

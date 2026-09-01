@@ -3,7 +3,7 @@
   "name": "agentbridge-africa",
   "title": "AgentBridge Africa",
   "description": "Hardened MCP payment bridge for African rails (M-Pesa, Paystack, NIBSS) with native safety annotations, OAuth 2.1 PKCE, HTTP 402 budget stops, and NIST OSCAL audit packs.",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "transport": {
     "type": "http",
     "endpoint": "/mcp"
@@ -79,6 +79,31 @@
       }
     },
     {
+      "name": "check_transaction",
+      "description": "Check a transaction status without changing payment state",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "transaction_id"
+        ],
+        "properties": {
+          "transaction_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
       "name": "mpesa_stk_query",
       "description": "Check status of a pending M-Pesa transaction",
       "annotations": {
@@ -107,7 +132,7 @@
     },
     {
       "name": "paystack_verify",
-      "description": "Verify a Paystack transaction by reference",
+      "description": "Verify a Paystack transaction by reference (read-only)",
       "annotations": {
         "readOnly": true,
         "destructive": false,
@@ -125,6 +150,61 @@
         "properties": {
           "reference": {
             "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "process_payment",
+      "description": "Process a payment through the best healthy regional provider rail",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "destination_country",
+          "recipient",
+          "idempotency_key"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "KES",
+              "NGN",
+              "GHS",
+              "UGX",
+              "ZAR",
+              "USD"
+            ]
+          },
+          "destination_country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "recipient": {
+            "type": "string",
+            "minLength": 3
+          },
+          "reference": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
           }
         }
       }
@@ -180,7 +260,7 @@
     },
     {
       "name": "mpesa_b2c_disburse",
-      "description": "Disburse funds via M-Pesa B2C",
+      "description": "Disburse funds via M-Pesa B2C (salary / business payment)",
       "annotations": {
         "readOnly": false,
         "destructive": true,
@@ -224,7 +304,7 @@
     },
     {
       "name": "paystack_initialize",
-      "description": "Initialize a Paystack checkout",
+      "description": "Initialize a Paystack checkout for NGN (and multi-currency) collections",
       "annotations": {
         "readOnly": false,
         "destructive": true,
@@ -269,7 +349,7 @@
     },
     {
       "name": "bank_transfer_ngn",
-      "description": "Initiate a NGN bank credit transfer",
+      "description": "Initiate a NGN bank credit transfer (NIBSS-shaped sandbox)",
       "annotations": {
         "readOnly": false,
         "destructive": true,
@@ -316,7 +396,7 @@
     },
     {
       "name": "execute_payment",
-      "description": "Execute a previously quoted payment",
+      "description": "Execute a previously quoted payment. Requires idempotency_key.",
       "annotations": {
         "readOnly": false,
         "destructive": true,
@@ -355,46 +435,91 @@
     {
       "uri": "agentbridge://runs/{run_id}/state",
       "name": "run_state",
+      "description": "Versioned AgentState checkpoint for an in-flight or completed run",
+      "mimeType": "application/json",
       "annotations": {
         "readOnly": true,
+        "destructive": false,
         "idempotent": true,
-        "destructive": false
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
       }
     },
     {
       "uri": "agentbridge://profiles/{locale}",
       "name": "context_profile",
+      "description": "Locale-bound ContextProfile (currency, rails, connectivity, caps)",
+      "mimeType": "application/json",
       "annotations": {
         "readOnly": true,
+        "destructive": false,
         "idempotent": true,
-        "destructive": false
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
       }
     },
     {
       "uri": "agentbridge://wallet/{account}/balance",
       "name": "wallet_balance",
+      "description": "Read-only wallet / ledger balance. Never a transfer primitive.",
+      "mimeType": "application/json",
       "annotations": {
         "readOnly": true,
+        "destructive": false,
         "idempotent": true,
-        "destructive": false
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
       }
     },
     {
       "uri": "agentbridge://compliance/{run_id}/assessment-results",
       "name": "oscal_assessment_results",
+      "description": "NIST OSCAL Assessment Results for a run",
+      "mimeType": "application/json",
       "annotations": {
         "readOnly": true,
+        "destructive": false,
         "idempotent": true,
-        "destructive": false
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
       }
     },
     {
       "uri": "agentbridge://compliance/{run_id}/poam",
       "name": "oscal_poam",
+      "description": "NIST OSCAL Plan of Action and Milestones generated from failed controls",
+      "mimeType": "application/json",
       "annotations": {
         "readOnly": true,
+        "destructive": false,
         "idempotent": true,
-        "destructive": false
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "uri": "agentbridge://.well-known/mcp.json",
+      "name": "mcp_server_card",
+      "description": "MCP server discovery card (tools, resources, auth, scopes)",
+      "mimeType": "application/json",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
       }
     }
   ]

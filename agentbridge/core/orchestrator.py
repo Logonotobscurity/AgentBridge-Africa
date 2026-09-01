@@ -142,7 +142,7 @@ def run_quote_goal(
 
     rail = planned[0]["rail"]
     step = worker_quote(state, rail, amount)
-    state = guardian.charge(state, step.cost_usd)
+    state = guardian.charge(state, step.cost_usd, category="processing")
     if state.status == "budget_exceeded":
         clear_fault()
         tracer.end(span, status="ERROR", attributes={"http_status": 402})
@@ -211,7 +211,7 @@ def run_quote_goal(
             state.traces.append(span.to_record())
             return state
         ex = execute(rail, step.data["quote_id"], key)  # type: ignore[arg-type]
-        state = guardian.charge(state, float(ex.cost_estimate or 0.0))
+        state = guardian.charge(state, float(ex.cost_estimate or 0.0), category="processing")
         if state.status == "budget_exceeded":
             clear_fault()
             tracer.end(span, status="ERROR", attributes={"http_status": 402})

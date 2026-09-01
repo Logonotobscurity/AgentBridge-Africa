@@ -14,7 +14,7 @@
 4. Evals before feature expansion. Golden trajectories in YAML; production
    traces sampled into the same harness.
 5. Side-effect tools require idempotency keys, `payments:execute` scope, and
-   HITL above threshold.
+   verifier-backed HITL confirmation; amounts above threshold receive enhanced review.
 6. Tools act; resources read. Annotate both.
 
 ## Layout
