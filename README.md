@@ -170,6 +170,6 @@ Latest sandbox run: **7 / 7 expected outcomes (100%)**.
 - OAuth 2.1 + PKCE on remote MCP; tokens bound to exact scopes
 - OpenTelemetry-shaped traces on every LLM / tool / policy span
 
-See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/architecture.md`](docs/architecture.md), [`docs/production-architecture.md`](docs/production-architecture.md), [`docs/webhooks.md`](docs/webhooks.md), the [`Context Router & PostgreSQL FSM audit`](docs/audits/context-router-postgres-fsm-audit.md), the [`Provider Connector audit`](docs/audits/provider-connectors-audit.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
+See [`DEVELOPMENT.md`](DEVELOPMENT.md), [`docs/architecture.md`](docs/architecture.md), [`docs/production-architecture.md`](docs/production-architecture.md), [`docs/webhooks.md`](docs/webhooks.md), the [`Production Activation Verification audit`](docs/audits/production-activation-verification.md), the [`Context Router & PostgreSQL FSM audit`](docs/audits/context-router-postgres-fsm-audit.md), the [`Provider Connector audit`](docs/audits/provider-connectors-audit.md), [`docs/playbook.md`](docs/playbook.md), [`docs/mcp-safety.md`](docs/mcp-safety.md), and [`docs/oscal.md`](docs/oscal.md).
 
 Default execution remains sandboxed. Live connector classes perform no network I/O until explicitly registered with deployment-owned secrets, policy, callback hosts, and egress configuration.
