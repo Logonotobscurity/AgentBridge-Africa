@@ -1,7 +1,15 @@
 # AgentBridge Africa
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
+[![MCP](https://img.shields.io/badge/MCP-native%20annotations-green)](https://modelcontextprotocol.io/)
+[![Status](https://img.shields.io/badge/Status-sandbox%20prototype-orange)]()
+
 **Hardened multi-agent bridge for African payment rails.**  
 Policy-gated tool execution, human-in-the-loop approval, hard budget stops, and auditable evidence — not a generic chatbot.
+
+<!-- Banner / logo placeholder: add docs/assets/banner.png (transparent PNG, works in dark/light) -->
+<!-- Demo GIF: place a 5-15s recording of the operator console or eval run here, 600-800px wide -->
 
 > Local-context first (locale, currency, rails, connectivity).  
 > Default execution is sandboxed. Live connectors require deployment-owned secrets, policy, and egress configuration.
@@ -24,12 +32,18 @@ Agents that interact with real payment systems must be constrained. Unrestricted
 - Context profiles for Nigerian and Kenyan rails (including offline-first fail-closed behavior).
 - Operator console (Next.js) demonstrating approval workflow and audit visibility (currently mocked data).
 
-## Architecture (runtime shape)
+## Architecture
 
-```
-oauth/pkce → policy_gate → planner → worker → HITL → verifier → BudgetGuardian (402)
-                 │                                              │
-                 └─ MCP tools / resources                       └─ OSCAL AR + POA&M
+```mermaid
+flowchart LR
+    A[OAuth / PKCE] --> B[Policy Gate]
+    B --> C[Planner]
+    C --> D[Worker]
+    D --> E[HITL]
+    E --> F[Verifier]
+    F --> G[BudgetGuardian<br/>HTTP 402]
+    B -.-> H[MCP Tools / Resources]
+    G -.-> I[OSCAL AR + POA&M]
 ```
 
 Key components live in `agentbridge/core/` (orchestrator, policy, budget, HITL, rail switching), `agentbridge/tools/` (annotated MCP contracts + sandbox adapter), `agentbridge/payments/` (live-ready packs for M-Pesa/Daraja, Paystack, MTN MoMo), and `agentbridge/compliance/` (OSCAL exporter).
@@ -80,3 +94,10 @@ Best suited for: M-KOPA (AI Agents / AI Operations), Kredete (Agentic Systems), 
 - `DEVELOPMENT.md` — principles and definition of done
 - `docs/architecture.md`, `docs/production-architecture.md`, `docs/mcp-safety.md`, `docs/oscal.md`
 - Audits in `docs/audits/`
+
+## Visual assets to add
+
+1. Banner / logo in `docs/assets/` (transparent PNG, dark/light compatible).
+2. Demo GIF (5–15 s) of the operator console approval flow or `make eval`.
+3. Social preview image (1280×640) via repo Settings → Social preview.
+4. Screenshots of the operator dashboard next to relevant sections.
