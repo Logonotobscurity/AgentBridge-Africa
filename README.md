@@ -1,103 +1,48 @@
 # AgentBridge Africa
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
-[![MCP](https://img.shields.io/badge/MCP-native%20annotations-green)](https://modelcontextprotocol.io/)
-[![Status](https://img.shields.io/badge/Status-sandbox%20prototype-orange)]()
+[![Python](https://img.shields.io/badge/Python-3.11+-blue)]()
+[![Status](https://img.shields.io/badge/Status-hard%20budgets%20%2B%20evals-brightgreen)]()
 
-**Hardened multi-agent bridge for African payment rails.**  
-Policy-gated tool execution, human-in-the-loop approval, hard budget stops, and auditable evidence — not a generic chatbot.
+**Multi-agent bridge with ContextProfile, hard budget stops, and MCP-shaped African payment adapters.**
 
-<!-- Banner / logo placeholder: add docs/assets/banner.png (transparent PNG, works in dark/light) -->
-<!-- Demo GIF: place a 5-15s recording of the operator console or eval run here, 600-800px wide -->
-
-> Local-context first (locale, currency, rails, connectivity).  
-> Default execution is sandboxed. Live connectors require deployment-owned secrets, policy, and egress configuration.
+Golden trajectory evals, offline failure modes, and regional profiles (en-NG, en-KE) so agent systems stay predictable in African operating environments.
 
 ---
 
 ## What problem does this solve?
 
-Agents that interact with real payment systems must be constrained. Unrestricted tool calling creates unbounded cost, unauthorized transfers, and weak audit trails. AgentBridge Africa enforces explicit permissions, human approval for destructive actions, hard budget limits, and machine-readable compliance evidence before any side effect is allowed.
+Agent workflows lack hard cost ceilings, local context, and reliable regional tool adapters. Soft failures turn into infinite retries. AgentBridge enforces budget as a hard stop and evaluates against golden trajectories before expansion.
 
 ## What is implemented
 
-- Planner → worker → verifier orchestration with checkpointing.
-- Native MCP tool contracts with `readOnly` / `destructive` / `idempotent` annotations.
-- Policy gate (allow / block / escalate) and human-in-the-loop interceptors for destructive tools.
-- `BudgetGuardian` that hard-stops with HTTP 402 and writes partial OSCAL evidence.
-- Circuit breakers, provider routing, and OpenTelemetry-shaped traces.
-- OSCAL Assessment Results + Plan of Action & Milestones export.
-- Golden-trajectory eval harness + production-trace sampler.
-- Context profiles for Nigerian and Kenyan rails (including offline-first fail-closed behavior).
-- Operator console (Next.js) demonstrating approval workflow and audit visibility (currently mocked data).
+- ContextProfile (locale, currency, rails, cost caps)
+- BudgetGuardian hard stop
+- MCP-shaped tool envelopes with safety hints
+- Golden YAML trajectory harness (including failure injection)
+- Profiles: en-NG, en-KE, offline-NG
+- Payments adapter (quote / execute / status)
 
-## Architecture
+## Architecture / stack
 
-```mermaid
-flowchart LR
-    A[OAuth / PKCE] --> B[Policy Gate]
-    B --> C[Planner]
-    C --> D[Worker]
-    D --> E[HITL]
-    E --> F[Verifier]
-    F --> G[BudgetGuardian<br/>HTTP 402]
-    B -.-> H[MCP Tools / Resources]
-    G -.-> I[OSCAL AR + POA&M]
-```
-
-Key components live in `agentbridge/core/` (orchestrator, policy, budget, HITL, rail switching), `agentbridge/tools/` (annotated MCP contracts + sandbox adapter), `agentbridge/payments/` (live-ready packs for M-Pesa/Daraja, Paystack, MTN MoMo), and `agentbridge/compliance/` (OSCAL exporter).
+Python 3.11+ · Pydantic v2 · PyYAML · pytest  
+Eval harness runs fully offline.
 
 ## What a reviewer can run
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-make eval          # golden trajectories
-python -m pytest -q
-# Optional live connector transport (still requires deployment secrets)
-pip install '.[connectors]'
+make eval
 ```
-
-Discovery (no credentials required):
-```bash
-cat .well-known/mcp.json
-```
-
-Operator console (demo data):
-```bash
-cd frontend && npm install && npm run dev
-```
-
-## Evidence that it works
-
-| Metric | Latest sandbox result | Source |
-|--------|-----------------------|--------|
-| Golden trajectory success | 7 / 7 (100%) | `make eval` |
-| Budget hard-stop | HTTP 402 + partial OSCAL | `BudgetGuardian` + tests |
-| Destructive tool gating | HITL required; idempotency key enforced | Policy + HITL modules |
-| Audit artifacts | OSCAL AR + POA&M generated on control failure | `compliance/oscal_exporter.py` |
-
-## Honest limitations (important for interviews)
-
-- Operator dashboard data is currently mocked; approval actions update local UI state only.
-- Payment adapters include sandbox behavior; live execution depends on deployment-owned secrets and configuration.
-- Present this as a security-conscious architecture and working prototype, not a production payment processor.
 
 ## Portfolio value
 
-Strongest evidence for agent orchestration, operational controls, secure tool execution, and financial workflows.  
-Best suited for: M-KOPA (AI Agents / AI Operations), Kredete (Agentic Systems), Scale Army (Forward Deployed AI Engineer), Vennote, AfCEN.
+Evidence of production-minded agent design: hard budgets, regional context, and deterministic evals instead of demo-only loops. Companion to ArchAudit CCM.
 
-## Further reading
+## Limitations
 
-- `DEVELOPMENT.md` — principles and definition of done
-- `docs/architecture.md`, `docs/production-architecture.md`, `docs/mcp-safety.md`, `docs/oscal.md`
-- Audits in `docs/audits/`
+Planner is currently deterministic. Full multi-rail live adapters are stubbed for eval safety.
 
-## Visual assets to add
+## Companion repositories
 
-1. Banner / logo in `docs/assets/` (transparent PNG, dark/light compatible).
-2. Demo GIF (5–15 s) of the operator console approval flow or `make eval`.
-3. Social preview image (1280×640) via repo Settings → Social preview.
-4. Screenshots of the operator dashboard next to relevant sections.
+- [ArchAudit-CCM](https://github.com/Logonotobscurity/ArchAudit-CCM)
+- [GigPilot](https://github.com/Logonotobscurity/GigPilot)
