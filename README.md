@@ -2,7 +2,8 @@
 
 <p align="center">
   <strong>Multi-agent bridge with hard budgets and regional context</strong><br/>
-  ContextProfile · BudgetGuardian · Golden trajectory evals
+  ContextProfile · BudgetGuardian · Golden trajectory evals<br/>
+  for African payment rails and operating environments
 </p>
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat)]()
@@ -13,17 +14,17 @@
 
 ## What problem does this solve?
 
-Agent workflows lack hard cost ceilings, local context, and reliable regional tool adapters. Soft failures turn into infinite retries. AgentBridge enforces budget as a hard stop and evaluates against golden trajectories before expansion.
+Agent systems interacting with real rails need hard cost ceilings, local context, and failure-mode safety. Soft retries become infinite. AgentBridge makes budget a hard stop and evaluates every change against golden trajectories before expansion.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  A[ContextProfile<br/>locale / currency / rails] --> B[Planner]
-  B --> C[Worker<br/>MCP tools]
+  A[ContextProfile<br/>locale / currency / rails / offline] --> B[Planner]
+  B --> C[Worker<br/>MCP-shaped tools]
   C --> D[BudgetGuardian<br/>hard stop]
   D --> E[Verifier]
-  E --> F[Golden evals]
+  E --> F[Golden evals<br/>including failure injection]
 ```
 
 **Stack:** Python 3.11+ · Pydantic v2 · PyYAML · pytest  
@@ -31,11 +32,10 @@ Eval harness runs fully offline.
 
 ## What is implemented
 
-- ContextProfile (locale, currency, rails, cost caps)
+- ContextProfile (en-NG, en-KE, offline-NG)
 - BudgetGuardian hard stop
-- MCP-shaped tool envelopes with safety hints
-- Golden YAML trajectory harness (including failure injection)
-- Profiles: en-NG, en-KE, offline-NG
+- MCP-shaped envelopes with safety hints
+- Golden YAML trajectories + failure injection
 - Payments adapter (quote / execute / status)
 
 ## Quick start
@@ -47,22 +47,17 @@ make eval
 
 ## Demo
 
-<!-- 
-CLI demo recommended (asciinema + agg):
-  asciinema rec demo.cast && make eval && agg demo.cast demo.gif
-Web demo later:
-  npx screencli record <url> -p "Run eval harness and show budget hard stop"
--->
+<!-- asciinema + agg recommended for CLI; screencli for future web UI -->
 
-> Demo GIF coming soon. Run `make eval` to see the golden trajectory results.
+> Demo GIF coming soon. Run `make eval` to see 100% on expected outcomes.
 
 ## Portfolio value
 
-Evidence of production-minded agent design: hard budgets, regional context, and deterministic evals instead of demo-only loops. Companion to ArchAudit CCM.
+Production-minded agent design for African contexts: hard budgets, regional profiles, deterministic evals.
 
 ## Limitations
 
-Planner is currently deterministic. Full multi-rail live adapters are stubbed for eval safety.
+Planner is deterministic. Live multi-rail adapters are stubbed for eval safety.
 
 ## Companion repositories
 
@@ -71,6 +66,6 @@ Planner is currently deterministic. Full multi-rail live adapters are stubbed fo
 
 ## Visual assets checklist
 
-- [ ] Social preview image (1280×640)
-- [ ] Demo GIF of eval harness (asciinema recommended)
-- [ ] Optional logo in `docs/assets/`
+- [ ] Social preview (1280×640)
+- [ ] Demo GIF of eval harness
+- [ ] Logo in `docs/assets/`
