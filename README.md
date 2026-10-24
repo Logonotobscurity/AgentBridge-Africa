@@ -1,5 +1,9 @@
 # AgentBridge Africa
 
+<p align="center">
+  <img src="docs/assets/social-preview.svg" alt="AgentBridge Africa: bounded multi-agent execution with hard budgets and regional context" width="100%" />
+</p>
+
 [![Python](https://img.shields.io/badge/Python-3.11+-blue)]()
 [![Status](https://img.shields.io/badge/Status-hard%20budgets%20%2B%20evals-brightgreen)]()
 
