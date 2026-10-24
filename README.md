@@ -1,17 +1,33 @@
 # AgentBridge Africa
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue)]()
-[![Status](https://img.shields.io/badge/Status-hard%20budgets%20%2B%20evals-brightgreen)]()
+<p align="center">
+  <strong>Multi-agent bridge with hard budgets and regional context</strong><br/>
+  ContextProfile · BudgetGuardian · Golden trajectory evals
+</p>
 
-**Multi-agent bridge with ContextProfile, hard budget stops, and MCP-shaped African payment adapters.**
-
-Golden trajectory evals, offline failure modes, and regional profiles (en-NG, en-KE) so agent systems stay predictable in African operating environments.
+[![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat)]()
+[![Status](https://img.shields.io/badge/Status-hard%20budgets%20%2B%20evals-brightgreen?style=flat)]()
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat)]()
 
 ---
 
 ## What problem does this solve?
 
 Agent workflows lack hard cost ceilings, local context, and reliable regional tool adapters. Soft failures turn into infinite retries. AgentBridge enforces budget as a hard stop and evaluates against golden trajectories before expansion.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  A[ContextProfile<br/>locale / currency / rails] --> B[Planner]
+  B --> C[Worker<br/>MCP tools]
+  C --> D[BudgetGuardian<br/>hard stop]
+  D --> E[Verifier]
+  E --> F[Golden evals]
+```
+
+**Stack:** Python 3.11+ · Pydantic v2 · PyYAML · pytest  
+Eval harness runs fully offline.
 
 ## What is implemented
 
@@ -22,17 +38,19 @@ Agent workflows lack hard cost ceilings, local context, and reliable regional to
 - Profiles: en-NG, en-KE, offline-NG
 - Payments adapter (quote / execute / status)
 
-## Architecture / stack
-
-Python 3.11+ · Pydantic v2 · PyYAML · pytest  
-Eval harness runs fully offline.
-
-## What a reviewer can run
+## Quick start
 
 ```bash
 pip install -r requirements.txt
 make eval
 ```
+
+## Demo
+
+<!-- Placeholder for screencli / terminal recording -->
+<!-- Record with: npx screencli record <docs-url> -p "Run the eval harness and show budget hard stop" -->
+
+> Demo GIF coming soon. Run `make eval` to see the golden trajectory results.
 
 ## Portfolio value
 
@@ -46,3 +64,9 @@ Planner is currently deterministic. Full multi-rail live adapters are stubbed fo
 
 - [ArchAudit-CCM](https://github.com/Logonotobscurity/ArchAudit-CCM)
 - [GigPilot](https://github.com/Logonotobscurity/GigPilot)
+
+## Visual assets to add
+
+1. Social preview image (1280×640).
+2. Demo GIF of eval harness output (asciinema recommended).
+3. Static architecture diagram if needed.
