@@ -14,17 +14,17 @@
 4. Evals before feature expansion. Golden trajectories in YAML; production
    traces sampled into the same harness.
 5. Side-effect tools require idempotency keys, `payments:execute` scope, and
-   HITL above threshold.
+   verifier-backed HITL confirmation; amounts above threshold receive enhanced review.
 6. Tools act; resources read. Annotate both.
 
 ## Layout
 
 ```
 .well-known/mcp.json
-agentbridge/core/          budget_guardian, router, oauth, hitl, breaker, telemetry, state
-agentbridge/tools/         payment_mcp (annotated) + resources (read-only)
+agentbridge/core/          orchestrator, graph, policy, router, budget, auth, resilience, state
+agentbridge/tools/         MCP contracts + sandbox adapter + read-only resources
 agentbridge/compliance/    oscal_exporter + NIST JSON v1.2.1 subset schemas
-src/bridge/                planner, worker, verifier, policy_gate
+src/bridge/, tools/        deprecated compatibility imports (no canonical business logic)
 profiles/                  en-NG.json, en-KE.json, offline-NG.json
 evals/                     trajectories + harness + production_sampler
 tests/                     test_budget_guardian.py + MCP/OAuth/OSCAL
@@ -43,6 +43,8 @@ tests/                     test_budget_guardian.py + MCP/OAuth/OSCAL
 - [x] OTEL-shaped traces
 - [x] Production trace sampler
 - [x] AgentState schema_version = 2 with optional new fields
+- [x] PostgreSQL 16 migration, retry-storm, rollback, row-lock, and SKIP LOCKED test harness
+- [ ] Enable the PostgreSQL CI service after granting the GitHub connection workflow-write permission
 
 ## References (patterns borrowed)
 

@@ -10,7 +10,7 @@ AgentBridge writes native OSCAL JSON after every run.
   poam.oscal.json                  # only if any control is not-satisfied
 ```
 
-Documents validate against `agentbridge/compliance/schemas/` (OSCAL 1.2.1 subset: uuid, metadata, findings, poam-items). Install `jsonschema` for full Draft-2020-12 validation; a required-key walker is used otherwise.
+Documents validate against `agentbridge/compliance/schemas/` (OSCAL 1.2.1 subset: uuid, metadata, findings, poam-items). Install `jsonschema` for full Draft-2020-12 validation; a required-key walker is used otherwise. Artifacts are atomically replaced, run IDs are path-safe, and a successful reassessment removes any stale POA&M from an earlier failed assessment.
 
 ## Controls
 

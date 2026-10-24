@@ -8,7 +8,7 @@ guide: resume, budget, add-a-tool, MCP, OSCAL.
 Every successful quote writes `state.checkpoint = { last_quote_id }`.
 
 1. Re-load the same `ContextProfile` JSON.
-2. Pass `execute_payment=True` (or call `tools.payments_adapter.execute` with
+2. Pass `execute_payment=True` (or call `agentbridge.tools.payment_adapter.execute` with
    the checkpoint `quote_id` **and** a fresh `idempotency_key`).
 3. Do not replay `quote` unless the checkpoint is missing — quotes are cheap
    but not free under `BudgetGuardian`.

@@ -71,3 +71,15 @@ def test_already_tripped_is_idempotent():
     again = g.charge(state, 1.0)
     assert again.spent_usd == 0.05
     assert again.http_status == 402
+
+
+def test_invalid_cost_cannot_bypass_ceiling():
+    state = AgentState(profile=ContextProfile(max_run_cost_usd=1))
+    guardian = BudgetGuardian(emit_oscal=False)
+    for invalid in (-0.01, float("nan"), float("inf")):
+        try:
+            guardian.charge(state, invalid)
+            raise AssertionError("invalid cost must fail closed")
+        except ValueError:
+            pass
+    assert state.spent_usd == 0

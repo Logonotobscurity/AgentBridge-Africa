@@ -3,7 +3,7 @@
   "name": "agentbridge-africa",
   "title": "AgentBridge Africa",
   "description": "Hardened MCP payment bridge for African rails (M-Pesa, Paystack, NIBSS) with native safety annotations, OAuth 2.1 PKCE, HTTP 402 budget stops, and NIST OSCAL audit packs.",
-  "version": "2.0.0",
+  "version": "2.5.0",
   "transport": {
     "type": "http",
     "endpoint": "/mcp"
@@ -24,77 +24,503 @@
     }
   },
   "capabilities": {
-    "tools": { "listChanged": true },
-    "resources": { "subscribe": true, "listChanged": true },
+    "tools": {
+      "listChanged": true
+    },
+    "resources": {
+      "subscribe": true,
+      "listChanged": true
+    },
     "logging": {}
   },
   "tools": [
     {
       "name": "quote_payment",
       "description": "Price a transfer across an African rail without moving money",
-      "annotations": { "readOnly": true, "destructive": false, "idempotent": true }
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "rail"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string"
+          },
+          "rail": {
+            "type": "string",
+            "enum": [
+              "bank",
+              "ussd",
+              "mobile_money",
+              "mpesa",
+              "paystack",
+              "mtn_momo"
+            ]
+          },
+          "country": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "check_transaction",
+      "description": "Check a transaction status without changing payment state",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "transaction_id"
+        ],
+        "properties": {
+          "transaction_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     },
     {
       "name": "mpesa_stk_query",
       "description": "Check status of a pending M-Pesa transaction",
-      "annotations": { "readOnly": true, "destructive": false, "idempotent": true }
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "checkout_request_id"
+        ],
+        "properties": {
+          "checkout_request_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        }
+      }
     },
     {
       "name": "paystack_verify",
-      "description": "Verify a Paystack transaction by reference",
-      "annotations": { "readOnly": true, "destructive": false, "idempotent": true }
+      "description": "Verify a Paystack transaction by reference (read-only)",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "reference"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "process_payment",
+      "description": "Process a payment through the best healthy regional provider rail",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "destination_country",
+          "recipient",
+          "idempotency_key"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "KES",
+              "NGN",
+              "GHS",
+              "UGX",
+              "ZAR",
+              "USD"
+            ]
+          },
+          "destination_country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "recipient": {
+            "type": "string",
+            "minLength": 3
+          },
+          "reference": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
     },
     {
       "name": "mpesa_stk_push",
       "description": "Initiate M-Pesa mobile money STK push payment request",
-      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "phone",
+          "idempotency_key"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "KES",
+              "NGN",
+              "GHS",
+              "UGX",
+              "USD"
+            ]
+          },
+          "phone": {
+            "type": "string",
+            "description": "MSISDN in international format"
+          },
+          "account_reference": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
     },
     {
       "name": "mpesa_b2c_disburse",
-      "description": "Disburse funds via M-Pesa B2C",
-      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+      "description": "Disburse funds via M-Pesa B2C (salary / business payment)",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "phone",
+          "idempotency_key"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "KES"
+            ]
+          },
+          "phone": {
+            "type": "string"
+          },
+          "occasion": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
     },
     {
       "name": "paystack_initialize",
-      "description": "Initialize a Paystack checkout",
-      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+      "description": "Initialize a Paystack checkout for NGN (and multi-currency) collections",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "email",
+          "idempotency_key"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "NGN",
+              "GHS",
+              "USD",
+              "ZAR"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
     },
     {
       "name": "bank_transfer_ngn",
-      "description": "Initiate a NGN bank credit transfer",
-      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+      "description": "Initiate a NGN bank credit transfer (NIBSS-shaped sandbox)",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "amount",
+          "account_number",
+          "bank_code",
+          "idempotency_key"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "const": "NGN"
+          },
+          "account_number": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 10
+          },
+          "bank_code": {
+            "type": "string"
+          },
+          "narration": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
     },
     {
       "name": "execute_payment",
-      "description": "Execute a previously quoted payment",
-      "annotations": { "readOnly": false, "destructive": true, "idempotent": false }
+      "description": "Execute a previously quoted payment. Requires idempotency_key.",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "quote_id",
+          "idempotency_key",
+          "rail"
+        ],
+        "properties": {
+          "quote_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "rail": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          }
+        }
+      }
     }
   ],
   "resources": [
     {
       "uri": "agentbridge://runs/{run_id}/state",
       "name": "run_state",
-      "annotations": { "readOnly": true, "idempotent": true }
+      "description": "Versioned AgentState checkpoint for an in-flight or completed run",
+      "mimeType": "application/json",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
     },
     {
       "uri": "agentbridge://profiles/{locale}",
       "name": "context_profile",
-      "annotations": { "readOnly": true, "idempotent": true }
+      "description": "Locale-bound ContextProfile (currency, rails, connectivity, caps)",
+      "mimeType": "application/json",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
     },
     {
       "uri": "agentbridge://wallet/{account}/balance",
       "name": "wallet_balance",
-      "annotations": { "readOnly": true, "idempotent": true }
+      "description": "Read-only wallet / ledger balance. Never a transfer primitive.",
+      "mimeType": "application/json",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
     },
     {
       "uri": "agentbridge://compliance/{run_id}/assessment-results",
       "name": "oscal_assessment_results",
-      "annotations": { "readOnly": true, "idempotent": true }
+      "description": "NIST OSCAL Assessment Results for a run",
+      "mimeType": "application/json",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
     },
     {
       "uri": "agentbridge://compliance/{run_id}/poam",
       "name": "oscal_poam",
-      "annotations": { "readOnly": true, "idempotent": true }
+      "description": "NIST OSCAL Plan of Action and Milestones generated from failed controls",
+      "mimeType": "application/json",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "uri": "agentbridge://.well-known/mcp.json",
+      "name": "mcp_server_card",
+      "description": "MCP server discovery card (tools, resources, auth, scopes)",
+      "mimeType": "application/json",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true,
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
     }
   ]
 }

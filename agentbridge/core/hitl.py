@@ -15,6 +15,20 @@ from agentbridge.core.state import HitlPending
 from agentbridge.tools.mcp_types import Tool, annotations_dict
 
 HitlDecision = Literal["pending", "approved", "denied"]
+ConfirmationMethod = Literal["otp", "pin", "oauth"]
+
+
+@dataclass(frozen=True)
+class ConfirmationEvidence:
+    """Reference to a verified challenge; never stores an OTP or PIN secret."""
+
+    method: ConfirmationMethod
+    reference: str
+    subject: str
+
+    def __post_init__(self) -> None:
+        if not self.reference.strip() or not self.subject.strip():
+            raise ValueError("confirmation reference and subject are required")
 
 
 @dataclass
@@ -55,17 +69,37 @@ class HitlGate:
         anns = annotations_dict(tool) if not isinstance(tool, str) else {"destructive": True}
         if not anns.get("destructive"):
             return None
-        if amount is None or amount < threshold:
-            return None
+        threshold_note = (
+            f"; amount meets enhanced-review threshold {threshold}"
+            if amount is not None and amount >= threshold
+            else ""
+        )
+        return self.request(
+            name,
+            amount=amount,
+            currency=currency,
+            rationale=(
+                f"destructive tool {name} requires verified OTP, PIN, or OAuth confirmation"
+                f"{threshold_note}"
+            ),
+        )
+
+    def request(
+        self,
+        tool: Tool | str,
+        *,
+        amount: float | None,
+        currency: str | None,
+        rationale: str,
+    ) -> HitlTicket:
+        """Create an explicit ticket for a policy escalation."""
+        name = tool if isinstance(tool, str) else tool.name
         ticket = HitlTicket(
             ticket_id=uuid4().hex[:12],
             tool=name,
             amount=amount,
             currency=currency,
-            rationale=(
-                f"destructive tool {name} amount={amount} {currency or ''} "
-                f"exceeds HITL threshold {threshold}"
-            ).strip(),
+            rationale=rationale,
             requested_at=datetime.now(timezone.utc).isoformat(),
         )
         self.tickets[ticket.ticket_id] = ticket

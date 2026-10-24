@@ -11,7 +11,8 @@ the guardian:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from math import isfinite
+from typing import Any, Callable, Literal
 
 from agentbridge.core.state import AgentState
 
@@ -43,9 +44,29 @@ class BudgetGuardian:
         return round(state.profile.max_run_cost_usd - state.spent_usd, 6)
 
     def would_exceed(self, state: AgentState, add_cost: float) -> bool:
+        add_cost = self._valid_cost(add_cost)
         return round(state.spent_usd + add_cost, 6) > state.profile.max_run_cost_usd
 
-    def charge(self, state: AgentState, add_cost: float = 0.0, *, raise_on_cap: bool = False) -> AgentState:
+    @staticmethod
+    def _valid_cost(add_cost: float) -> float:
+        """Reject credits and non-finite provider values that could bypass a cap."""
+        try:
+            cost = float(add_cost)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("add_cost must be a finite non-negative number") from exc
+        if not isfinite(cost) or cost < 0:
+            raise ValueError("add_cost must be a finite non-negative number")
+        return cost
+
+    def charge(
+        self,
+        state: AgentState,
+        add_cost: float = 0.0,
+        *,
+        category: Literal["llm", "processing", "other"] = "other",
+        raise_on_cap: bool = False,
+    ) -> AgentState:
+        add_cost = self._valid_cost(add_cost)
         if state.status == "budget_exceeded":
             state.http_status = HTTP_402_PAYMENT_REQUIRED
             if raise_on_cap:
@@ -54,6 +75,10 @@ class BudgetGuardian:
 
         projected = round(state.spent_usd + add_cost, 6)
         state.spent_usd = projected
+        if category == "llm":
+            state.llm_cost_usd = round(state.llm_cost_usd + add_cost, 6)
+        elif category == "processing":
+            state.processing_fee_usd = round(state.processing_fee_usd + add_cost, 6)
         self._charged.append(add_cost)
 
         if projected > state.profile.max_run_cost_usd:
@@ -113,6 +138,8 @@ def payment_required_body(state: AgentState) -> dict[str, Any]:
         "status": HTTP_402_PAYMENT_REQUIRED,
         "run_id": state.run_id,
         "spent_usd": state.spent_usd,
+        "llm_cost_usd": state.llm_cost_usd,
+        "processing_fee_usd": state.processing_fee_usd,
         "max_run_cost_usd": state.profile.max_run_cost_usd,
         "stop_reason": state.stop_reason,
         "partial_artifacts": state.partial_artifacts,
