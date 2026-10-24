@@ -47,8 +47,12 @@ make eval
 
 ## Demo
 
-<!-- Placeholder for screencli / terminal recording -->
-<!-- Record with: npx screencli record <docs-url> -p "Run the eval harness and show budget hard stop" -->
+<!-- 
+CLI demo recommended (asciinema + agg):
+  asciinema rec demo.cast && make eval && agg demo.cast demo.gif
+Web demo later:
+  npx screencli record <url> -p "Run eval harness and show budget hard stop"
+-->
 
 > Demo GIF coming soon. Run `make eval` to see the golden trajectory results.
 
@@ -65,8 +69,8 @@ Planner is currently deterministic. Full multi-rail live adapters are stubbed fo
 - [ArchAudit-CCM](https://github.com/Logonotobscurity/ArchAudit-CCM)
 - [GigPilot](https://github.com/Logonotobscurity/GigPilot)
 
-## Visual assets to add
+## Visual assets checklist
 
-1. Social preview image (1280×640).
-2. Demo GIF of eval harness output (asciinema recommended).
-3. Static architecture diagram if needed.
+- [ ] Social preview image (1280×640)
+- [ ] Demo GIF of eval harness (asciinema recommended)
+- [ ] Optional logo in `docs/assets/`
