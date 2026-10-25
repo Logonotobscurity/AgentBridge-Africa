@@ -1,6 +1,10 @@
 # AgentBridge Africa
 
 <p align="center">
+  <img src="docs/assets/social-preview.svg" alt="AgentBridge Africa: bounded multi-agent execution with hard budgets and regional context" width="100%" />
+</p>
+
+<p align="center">
   <strong>Multi-agent bridge with hard budgets and regional context</strong><br/>
   ContextProfile · BudgetGuardian · Golden trajectory evals<br/>
   for African payment rails and operating environments
