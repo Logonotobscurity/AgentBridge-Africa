@@ -38,6 +38,23 @@ pip install -r requirements.txt
 make eval
 ```
 
+## Reproducible terminal demo
+
+Run the offline golden-trajectory evaluation harness:
+
+```bash
+pip install -r requirements.txt
+make eval
+```
+
+Run `make test` for the full automated checks. Live payment-rail adapters are stubbed for evaluation safety; this demo is not a live payment transaction.
+
+For a short recording, capture `make eval` with [asciinema](https://asciinema.org/), then convert the cast to a compressed GIF with [agg](https://github.com/asciinema/agg). Verify the output and remove secrets before publishing.
+
+## Social preview
+
+The README banner is stored at `docs/assets/social-preview.svg`. To set the card shown when the repository link is shared, upload the matching 1280×640 PNG through **Settings → General → Social preview**. This setting is separate from the README banner.
+
 ## Portfolio value
 
 Evidence of production-minded agent design: hard budgets, regional context, and deterministic evals instead of demo-only loops. Companion to ArchAudit CCM.
