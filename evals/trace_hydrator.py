@@ -31,7 +31,7 @@ _COMPACT_SENSITIVE_MARKERS = {
     "recipient_name", "refresh_token", "routing_number", "sort_code",
     "tax_id", "authorization", "password", "secret", "token", "bvn",
     "iban", "swift", "otp", "cvv", "cvc", "customer", "beneficiary",
-    "recipient", "address", "name", "card_pan",
+    "recipient", "address", "card_pan",
 }
 _SENSITIVE_PHRASES = {
     ("account", "no"), ("account", "number"), ("bank", "account"),
