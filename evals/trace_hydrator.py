@@ -22,6 +22,16 @@ _SENSITIVE_TOKENS = {
     "iban", "mobile", "msisdn", "nin", "otp", "pan", "password", "phone",
     "pin", "recipient", "secret", "swift", "token", "cvv", "cvc", "address",
 }
+_COMPACT_SENSITIVE_MARKERS = {
+    "access_token", "account_no", "account_number", "bank_account",
+    "bank_details", "beneficiary_id", "beneficiary_name", "card_number",
+    "customer_id", "customer_name", "date_of_birth", "drivers_license",
+    "email", "identity_number", "mobile", "msisdn", "national_id",
+    "nin", "phone", "primary_account_number", "recipient_id",
+    "recipient_name", "refresh_token", "routing_number", "sort_code",
+    "tax_id", "authorization", "password", "secret", "token", "bvn",
+    "iban", "swift", "otp", "cvv", "cvc",
+}
 _SENSITIVE_PHRASES = {
     ("account", "no"), ("account", "number"), ("bank", "account"),
     ("card", "number"), ("customer", "id"), ("customer", "name"),
@@ -60,6 +70,11 @@ def _key_tokens(key: str) -> tuple[str, ...]:
 
 
 def _is_sensitive_key(key: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]", "", key.casefold())
+    if normalized in {"pan", "pin"}:
+        return True
+    if any(marker.replace("_", "") in normalized for marker in _COMPACT_SENSITIVE_MARKERS):
+        return True
     tokens = _key_tokens(key)
     if any(token in _SENSITIVE_TOKENS for token in tokens):
         return True
