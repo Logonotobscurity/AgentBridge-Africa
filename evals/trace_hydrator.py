@@ -18,7 +18,7 @@ _REDACTED = "[REDACTED]"
 # Match normalized key components, not only literal snake_case spellings.
 # Short identifiers are matched as complete tokens so spanId is not mistaken for PAN.
 _SENSITIVE_TOKENS = {
-    "account", "authorization", "beneficiary", "bvn", "customer", "email",
+    "account", "authorization", "bank", "beneficiary", "bvn", "customer", "email",
     "iban", "mobile", "msisdn", "nin", "otp", "pan", "password", "phone",
     "pin", "recipient", "secret", "swift", "token", "cvv", "cvc", "address",
 }
@@ -31,17 +31,17 @@ _SENSITIVE_PHRASES = {
     ("national", "id"), ("passport", "number"),
     ("primary", "account", "number"), ("recipient", "id"),
     ("recipient", "name"), ("routing", "number"), ("sort", "code"),
-    ("surname",), ("tax", "id"), ("beneficiary", "id"),
+    ("surname",), ("middle", "name"), ("tax", "id"), ("beneficiary", "id"),
     ("beneficiary", "name"),
 }
 # These fields can contain arbitrary prose or raw provider/request payloads.
 # Drop them; do not pretend that hashing or key-based recursion anonymizes prose.
 _FREE_TEXT_DROP_KEYS = {
-    "assistantoutput", "body", "callbackbody", "comment", "content",
-    "context", "description", "errordetail", "exception", "free_text",
+    "assistantoutput", "body", "callback", "callbackbody", "comment", "content",
+    "context", "description", "errordetail", "exception", "free_text", "note",
     "input", "inputtext", "message", "notes", "output", "outputtext",
-    "prompt", "query", "rationale", "raw", "rawpayload", "requestbody",
-    "responsebody", "spanname", "tags", "text", "transcript", "userinput",
+    "payload", "prompt", "query", "rationale", "raw", "rawdata", "rawpayload", "request", "requestbody",
+    "response", "responsebody", "spanname", "tags", "text", "transcript", "userinput",
 }
 _NORMALIZED_FREE_TEXT_DROP_KEYS = {
     re.sub(r"[^a-z0-9]", "", item.casefold())
@@ -72,7 +72,11 @@ def _is_sensitive_key(key: str) -> bool:
 
 def _is_free_text_key(key: str) -> bool:
     normalized = re.sub(r"[^a-z0-9]", "", key.casefold())
-    return normalized in _NORMALIZED_FREE_TEXT_DROP_KEYS
+    return normalized in _NORMALIZED_FREE_TEXT_DROP_KEYS or any(
+        normalized.startswith(marker) or normalized.endswith(marker)
+        for marker in _NORMALIZED_FREE_TEXT_DROP_KEYS
+        if len(marker) >= 5
+    )
 
 
 class EvalCase(BaseModel):
