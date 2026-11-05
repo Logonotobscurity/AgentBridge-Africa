@@ -66,7 +66,6 @@ def test_redaction_normalizes_sensitive_aliases_and_drops_free_text():
     assert cleaned["profile"][1]["phone-number"] == "[REDACTED]"
     assert "prompt" not in cleaned
     assert "callback_body" not in cleaned
-    assert "accessToken" == "accessToken"  # Key is retained; its value is redacted.
     assert cleaned["accessToken"] == "[REDACTED]"
 
 
