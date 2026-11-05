@@ -92,3 +92,11 @@ No migration is performed by this pull request.
 - Verify both sync and async saver implementations; unit mocks alone are not enough.
 
 **Current decision:** this is a draft storage-boundary remediation, not an end-to-end privacy certification. It has not been exercised against a real PostgreSQL service, has not migrated existing checkpoint rows, and has not provisioned a runtime key. Live money movement remains **NO-GO**.
+
+## 8. Serializer type allowlist
+
+The encrypted wrapper in this draft enforces encrypted type tags, but its inner serializer currently uses LangGraph's default `JsonPlusSerializer`. That inner serializer's MessagePack type allowlist behavior depends on the installed LangGraph version and strict-mode configuration. Encryption does not make permissive deserialization safe after key compromise, and a database operator can still replay or move existing valid ciphertext between rows because this draft does not bind ciphertext to thread/channel identity with associated authenticated data.
+
+Before deployment, pin the LangGraph/checkpoint-postgres versions, inspect the effective inner serializer configuration, and either enable LangGraph strict MessagePack mode at process startup or provide an explicit reviewed allowlist for the AgentBridge state models and LangGraph internal types required for resume. Add tests proving that disallowed object types are refused. Do not claim this control is complete until that compatibility work is verified.
+
+The saver factories must also be wired into the actual graph startup path. This patch hardens the factories, but it does not prove every production graph constructs and passes one of these encrypted savers. Deployment wiring is a separate acceptance gate.
