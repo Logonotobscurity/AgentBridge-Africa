@@ -104,12 +104,13 @@ _SAFE_ENUMS: dict[str, frozenset[str]] = {
     }),
     "country": frozenset({"NG", "KE", "GH", "UG", "ZA", "RW", "TZ", "EG", "MA", "ET"}),
     "destinationcountry": frozenset({"NG", "KE", "GH", "UG", "ZA", "RW", "TZ", "EG", "MA", "ET"}),
-    "spanname": frozenset({
+    "spanname": frozenset(_SAFE_TOOLS | {
         "agent.plan", "agent.execute", "tool.dispatch", "tool.result",
         "policy.evaluate", "budget.evaluate", "payment.quote",
         "payment.execute", "payment.reconcile", "webhook.verify",
         "webhook.ingest", "llm.generate", "checkpoint.write",
     }),
+    "code": frozenset({"UNSET", "OK", "ERROR"}),
     "servicename": frozenset({"agentbridge-africa"}),
     "reasons": frozenset({
         "destructive_without_idempotency_key", "execute_without_scope",
@@ -131,7 +132,7 @@ _IDENTIFIER_KEYS = frozenset({
     "id", "traceid", "spanid", "parentspanid",
     "sourcetraceid", "sourceobservationid",
 })
-_ID_RE = re.compile(r"^(?:[0-9a-fA-F]{16,64}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9A-HJKMNP-TV-Z]{26}|(?:otel|langfuse)_(?:missing|[0-9a-fA-F]{16,64}))$")
+_ID_RE = re.compile(r"^(?:[0-9a-fA-F]{16,64}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9A-HJKMNP-TV-Z]{26}|(?:otel|langfuse)_(?:missing|[0-9a-fA-F]{16,64}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}))$")
 
 
 def normalize_key(key: Any) -> str:
