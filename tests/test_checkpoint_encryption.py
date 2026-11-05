@@ -3,12 +3,15 @@ import sys
 from types import ModuleType
 from collections import namedtuple
 import json
+import asyncio
 
 import pytest
 
 from agentbridge.core import checkpointing
 from agentbridge.core.checkpointing import (
     _StrictEncryptedCheckpointSerializer,
+    _EncryptedPostgresSaverMixin,
+    _EncryptedAsyncPostgresSaverMixin,
     CHECKPOINT_KEY_ENV,
     CheckpointConfigurationError,
     _checkpoint_serde,
@@ -315,3 +318,122 @@ def test_checkpoint_metadata_and_config_drop_untrusted_values():
     assert "RAW_CONFIG_METADATA_CANARY" not in serialized
     assert "user@example.invalid" not in serialized
     assert safe == {"source": "loop", "step": 12, "parents": {"payments": "a" * 32}}
+
+
+
+def test_sync_saver_mixin_sanitizes_config_metadata_and_channel_values():
+    class FakeBaseSaver:
+        def __init__(self, serde):
+            self.serde = serde
+            self.saved = None
+
+        def put(self, config, checkpoint, metadata, new_versions):
+            self.saved = (config, checkpoint, metadata, new_versions)
+            return config
+
+        def _load_checkpoint_tuple(self, value):
+            return value["checkpoint_tuple"]
+
+    class FakeSaver(_EncryptedPostgresSaverMixin, FakeBaseSaver):
+        pass
+
+    serde = FakeCheckpointSerde()
+    saver = FakeSaver(serde)
+    config = {
+        "configurable": {
+            "thread_id": "a" * 32,
+            "checkpoint_ns": "payments",
+            "customer_email": "CONFIG_CANARY@example.invalid",
+        },
+        "metadata": {"prompt": "CONFIG_PROMPT_CANARY"},
+    }
+    checkpoint = {
+        "id": "b" * 32,
+        "channel_values": {"goal": "MIXIN_GOAL_CANARY"},
+        "pending_sends": [{"argument": "MIXIN_PENDING_CANARY"}],
+    }
+    metadata = {"source": "loop", "prompt": "MIXIN_METADATA_CANARY"}
+
+    saver.put(config, checkpoint, metadata, {"goal": "1"})
+
+    saved_config, saved_checkpoint, saved_metadata, _ = saver.saved
+    serialized = json.dumps({
+        "config": saved_config,
+        "checkpoint": saved_checkpoint,
+        "metadata": saved_metadata,
+    })
+    assert "CONFIG_CANARY" not in serialized
+    assert "CONFIG_PROMPT_CANARY" not in serialized
+    assert "MIXIN_GOAL_CANARY" not in serialized
+    assert "MIXIN_PENDING_CANARY" not in serialized
+    assert "MIXIN_METADATA_CANARY" not in serialized
+    assert saved_metadata == {"source": "loop"}
+
+
+def test_sync_saver_mixin_restores_loaded_encrypted_checkpoint():
+    class FakeBaseSaver:
+        def __init__(self, serde, loaded):
+            self.serde = serde
+            self.loaded = loaded
+
+        def _load_checkpoint_tuple(self, value):
+            return self.loaded
+
+    class FakeSaver(_EncryptedPostgresSaverMixin, FakeBaseSaver):
+        pass
+
+    serde = FakeCheckpointSerde()
+    prepared = _prepare_checkpoint({
+        "id": "b" * 32,
+        "channel_values": {"goal": "RESTORE_GOAL_CANARY"},
+        "pending_sends": [{"secret": "RESTORE_SEND_CANARY"}],
+    }, serde)
+    # Mimic the base saver decoding a blob marker from MessagePack as a list.
+    encrypted_marker = serde.dumps_typed(prepared["channel_values"]["goal"])
+    loaded_marker = serde.loads_typed(encrypted_marker)
+    saved_type = namedtuple("SavedCheckpoint", ["checkpoint", "metadata"])
+    loaded = saved_type({
+        "channel_values": {"goal": loaded_marker},
+        "pending_sends": prepared["pending_sends"],
+    }, {"source": "loop"})
+
+    saver = FakeSaver(serde, loaded)
+    restored = saver._load_checkpoint_tuple({"thread_id": "a" * 32})
+
+    assert restored.checkpoint["channel_values"]["goal"] == "RESTORE_GOAL_CANARY"
+    assert restored.checkpoint["pending_sends"] == [{"secret": "RESTORE_SEND_CANARY"}]
+
+
+def test_async_saver_mixin_encrypts_before_base_aput():
+    class FakeAsyncBaseSaver:
+        def __init__(self, serde):
+            self.serde = serde
+            self.saved = None
+
+        async def aput(self, config, checkpoint, metadata, new_versions):
+            self.saved = (config, checkpoint, metadata, new_versions)
+            return config
+
+    class FakeAsyncSaver(_EncryptedAsyncPostgresSaverMixin, FakeAsyncBaseSaver):
+        pass
+
+    serde = FakeCheckpointSerde()
+    saver = FakeAsyncSaver(serde)
+    config = {"configurable": {"thread_id": "a" * 32, "checkpoint_ns": "payments"}}
+    checkpoint = {
+        "id": "b" * 32,
+        "channel_values": {"goal": "ASYNC_GOAL_CANARY"},
+        "pending_sends": [{"customer": "ASYNC_SEND_CANARY"}],
+    }
+
+    asyncio.run(saver.aput(config, checkpoint, {"source": "loop"}, {"goal": "1"}))
+
+    saved_config, saved_checkpoint, saved_metadata, _ = saver.saved
+    serialized = json.dumps({
+        "config": saved_config,
+        "checkpoint": saved_checkpoint,
+        "metadata": saved_metadata,
+    })
+    assert "ASYNC_GOAL_CANARY" not in serialized
+    assert "ASYNC_SEND_CANARY" not in serialized
+    assert saved_metadata == {"source": "loop"}
