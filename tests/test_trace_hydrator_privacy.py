@@ -38,8 +38,10 @@ def _assert_no_canaries(value):
 def test_redaction_normalizes_sensitive_aliases_and_drops_free_text():
     raw = {
         "BVN": CANARIES[0],
+        "B.V.N.": CANARIES[0],
         "ninNumber": CANARIES[1],
         "bank-account-number": CANARIES[2],
+        "bankDetails": CANARIES[2],
         "customerName": CANARIES[3],
         "profile": [
             {"beneficiary_name": CANARIES[4]},
@@ -60,6 +62,8 @@ def test_redaction_normalizes_sensitive_aliases_and_drops_free_text():
     assert cleaned["currency"] == "NGN"
     assert cleaned["spanId"] == "opaque-span-id"
     assert cleaned["BVN"] == "[REDACTED]"
+    assert cleaned["B.V.N."] == "[REDACTED]"
+    assert cleaned["bankDetails"] == "[REDACTED]"
     assert cleaned["ninNumber"] == "[REDACTED]"
     assert cleaned["bank-account-number"] == "[REDACTED]"
     assert cleaned["profile"][0]["beneficiary_name"] == "[REDACTED]"
