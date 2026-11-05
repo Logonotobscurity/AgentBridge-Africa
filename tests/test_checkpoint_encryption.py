@@ -239,11 +239,35 @@ def test_checkpoint_restore_recovers_encrypted_channels_and_pending_sends():
         "pending_sends": [{"tool": "execute_payment"}],
     }
     prepared = _prepare_checkpoint(checkpoint, serde)
+
+    # Simulate the upstream Postgres saver: move every non-primitive channel
+    # value to a serde blob, leaving no channel data in the checkpoint JSONB.
+    checkpoint_json = dict(prepared)
+    checkpoint_json["channel_values"] = dict(prepared["channel_values"])
+    encrypted_blobs = {}
+    for channel, value in tuple(checkpoint_json["channel_values"].items()):
+        if value is None or isinstance(value, (str, int, float, bool)):
+            continue
+        encrypted_blobs[channel] = serde.dumps_typed(value)
+        checkpoint_json["channel_values"].pop(channel)
+
+    assert "SENSITIVE_GOAL_CANARY" not in json.dumps(checkpoint_json)
+    assert "FALLBACK_CANARY" not in json.dumps(checkpoint_json)
+    assert "PENDING_SEND_CANARY" not in json.dumps(checkpoint_json)
+
+    # The real saver decrypts blobs before calling _load_checkpoint_tuple.
+    # Json/MessagePack-like serializers can decode tuple markers as lists.
+    loaded_channel_values = {
+        channel: serde.loads_typed(payload)
+        for channel, payload in encrypted_blobs.items()
+    }
     saved_type = namedtuple("SavedCheckpoint", ["checkpoint", "metadata"])
-    saved = saved_type(prepared, {"source": "loop", "prompt": "METADATA_CANARY"})
+    checkpoint_json["channel_values"] = loaded_channel_values
+    saved = saved_type(checkpoint_json, {"source": "loop", "prompt": "METADATA_CANARY"})
     restored = _restore_checkpoint(saved, serde)
 
     assert restored.checkpoint["channel_values"]["goal"] == "SENSITIVE_GOAL_CANARY"
+    assert restored.checkpoint["channel_values"]["fallback_queue"] == checkpoint["channel_values"]["fallback_queue"]
     assert restored.checkpoint["pending_sends"] == [{"tool": "execute_payment"}]
     assert restored.metadata == {"source": "loop"}
 
