@@ -1,9 +1,9 @@
-"""Hydrate privacy-safe EvalCase records from OTEL and Langfuse traces."""
+"""Hydrate privacy-minimized EvalCase records from OTEL and Langfuse traces."""
 
 from __future__ import annotations
 
-import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable, Literal, Mapping
 
@@ -11,10 +11,67 @@ from pydantic import BaseModel, Field
 
 from evals.production_sampler import score_trace
 
-_SENSITIVE_KEYS = {
-    "account_number", "authorization", "email", "otp", "phone", "pin",
-    "recipient", "token", "access_token", "refresh_token",
+REDACTION_POLICY_VERSION = "1.0.0"
+_REDACTED = "[REDACTED]"
+
+# Match normalized key components, not only literal snake_case spellings.
+# Short identifiers are matched as complete tokens so spanId is not mistaken for PAN.
+_SENSITIVE_TOKENS = {
+    "account", "authorization", "beneficiary", "bvn", "customer", "email",
+    "iban", "mobile", "msisdn", "nin", "otp", "pan", "password", "phone",
+    "pin", "recipient", "secret", "swift", "token", "cvv", "cvc", "address",
 }
+_SENSITIVE_PHRASES = {
+    ("account", "no"), ("account", "number"), ("bank", "account"),
+    ("card", "number"), ("customer", "id"), ("customer", "name"),
+    ("date", "of", "birth"), ("dob",), ("driver", "license"),
+    ("family", "name"), ("first", "name"), ("full", "name"),
+    ("given", "name"), ("identity", "number"), ("last", "name"),
+    ("national", "id"), ("passport", "number"),
+    ("primary", "account", "number"), ("recipient", "id"),
+    ("recipient", "name"), ("routing", "number"), ("sort", "code"),
+    ("surname",), ("tax", "id"), ("beneficiary", "id"),
+    ("beneficiary", "name"),
+}
+# These fields can contain arbitrary prose or raw provider/request payloads.
+# Drop them; do not pretend that hashing or key-based recursion anonymizes prose.
+_FREE_TEXT_DROP_KEYS = {
+    "assistantoutput", "body", "callbackbody", "comment", "content",
+    "context", "description", "errordetail", "exception", "free_text",
+    "input", "inputtext", "message", "notes", "output", "outputtext",
+    "prompt", "query", "rationale", "raw", "rawpayload", "requestbody",
+    "responsebody", "spanname", "tags", "text", "transcript", "userinput",
+}
+_NORMALIZED_FREE_TEXT_DROP_KEYS = {
+    re.sub(r"[^a-z0-9]", "", item.casefold())
+    for item in _FREE_TEXT_DROP_KEYS
+}
+
+
+def _key_tokens(key: str) -> tuple[str, ...]:
+    """Split snake, kebab, dotted, spaced and camelCase key names."""
+    camel_split = re.sub(
+        r"([a-z0-9])([A-Z])",
+        lambda match: f"{match.group(1)} {match.group(2)}",
+        key,
+    )
+    return tuple(re.findall(r"[a-z0-9]+", camel_split.casefold()))
+
+
+def _is_sensitive_key(key: str) -> bool:
+    tokens = _key_tokens(key)
+    if any(token in _SENSITIVE_TOKENS for token in tokens):
+        return True
+    return any(
+        tokens[index : index + len(phrase)] == phrase
+        for phrase in _SENSITIVE_PHRASES
+        for index in range(len(tokens) - len(phrase) + 1)
+    )
+
+
+def _is_free_text_key(key: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]", "", key.casefold())
+    return normalized in _NORMALIZED_FREE_TEXT_DROP_KEYS
 
 
 class EvalCase(BaseModel):
@@ -28,11 +85,19 @@ class EvalCase(BaseModel):
 
 
 def _redact(value: Any, key: str = "") -> Any:
-    if key.lower() in _SENSITIVE_KEYS:
-        digest = hashlib.sha256(str(value).encode()).hexdigest()[:12]
-        return f"[redacted:{digest}]"
+    """Apply policy v1.0.0 before values enter an EvalCase artifact.
+
+    Sensitive identifiers are replaced with a fixed marker, never a digest.
+    Named free-text and raw-payload fields are omitted by their parent mapping.
+    """
+    if key and _is_sensitive_key(key):
+        return _REDACTED
     if isinstance(value, Mapping):
-        return {str(k): _redact(v, str(k)) for k, v in value.items()}
+        return {
+            str(raw_key): _redact(raw_value, str(raw_key))
+            for raw_key, raw_value in value.items()
+            if not _is_free_text_key(str(raw_key))
+        }
     if isinstance(value, list):
         return [_redact(item) for item in value]
     return value
@@ -65,7 +130,7 @@ def _json_object(value: Any) -> dict[str, Any]:
 
 
 def from_otel(payload: Mapping[str, Any]) -> list[EvalCase]:
-    """Convert an OTLP JSON export or a normalized ``spans`` payload."""
+    """Convert an OTLP JSON export or a normalized spans payload."""
     spans: list[Mapping[str, Any]] = []
     if isinstance(payload.get("spans"), list):
         spans.extend(s for s in payload["spans"] if isinstance(s, Mapping))
@@ -94,8 +159,11 @@ def from_otel(payload: Mapping[str, Any]) -> list[EvalCase]:
                 id=f"otel_{normalized['id'] or trace_id}",
                 source="otel",
                 input=_redact({"tool": tool, "arguments": arguments}),
-                expected_output={"pass": score["pass"], "tool": tool},
-                metadata={"score": score, "span_name": span.get("name")},
+                expected_output=_redact({"pass": score["pass"], "tool": tool}),
+                metadata={
+                    "redaction_policy_version": REDACTION_POLICY_VERSION,
+                    "score": _redact(score),
+                },
                 source_trace_id=trace_id,
                 source_observation_id=str(normalized["id"] or "") or None,
             )
@@ -110,13 +178,14 @@ def from_langfuse(traces: Iterable[Mapping[str, Any]]) -> list[EvalCase]:
         trace_id = str(trace.get("id") or trace.get("trace_id") or "")
         raw_input = _json_object(trace.get("input"))
         raw_output = _json_object(trace.get("output"))
+        trace_metadata = trace.get("metadata") or {}
         normalized = {
             "id": trace_id,
             "tool": raw_input.get("tool") or trace.get("name"),
             "arguments": raw_input.get("arguments") or {},
-            "oauth_scopes": (trace.get("metadata") or {}).get("oauth_scopes", []),
-            "retry_count": (trace.get("metadata") or {}).get("retry_count", 0),
-            "max_retries": (trace.get("metadata") or {}).get("max_retries", 3),
+            "oauth_scopes": trace_metadata.get("oauth_scopes", []),
+            "retry_count": trace_metadata.get("retry_count", 0),
+            "max_retries": trace_metadata.get("max_retries", 3),
         }
         score = score_trace(normalized)
         cases.append(
@@ -125,7 +194,10 @@ def from_langfuse(traces: Iterable[Mapping[str, Any]]) -> list[EvalCase]:
                 source="langfuse",
                 input=_redact(raw_input),
                 expected_output=_redact(raw_output) or {"pass": score["pass"]},
-                metadata={"score": score, "tags": trace.get("tags") or []},
+                metadata={
+                    "redaction_policy_version": REDACTION_POLICY_VERSION,
+                    "score": _redact(score),
+                },
                 source_trace_id=trace_id,
             )
         )
