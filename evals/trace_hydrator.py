@@ -9,6 +9,7 @@ from typing import Any, Iterable, Literal, Mapping
 
 from pydantic import BaseModel, Field
 
+from agentbridge.tools.payment_mcp import TOOLS_BY_NAME
 from evals.production_sampler import score_trace
 
 REDACTION_POLICY_VERSION = "1.0.0"
@@ -84,6 +85,13 @@ class EvalCase(BaseModel):
     source_observation_id: str | None = None
 
 
+def _safe_tool_name(value: Any) -> str | None:
+    """Retain only a registered static tool name, never a dynamic span label."""
+    if isinstance(value, str) and value in TOOLS_BY_NAME:
+        return value
+    return None
+
+
 def _redact(value: Any, key: str = "") -> Any:
     """Apply policy v1.0.0 before values enter an EvalCase artifact.
 
@@ -141,11 +149,12 @@ def from_otel(payload: Mapping[str, Any]) -> list[EvalCase]:
     cases: list[EvalCase] = []
     for span in spans:
         attrs = _attributes(span.get("attributes"))
-        tool = attrs.get("tool") or attrs.get("tool.name") or span.get("name")
+        tool_candidate = attrs.get("tool") or attrs.get("tool.name") or span.get("name")
+        safe_tool = _safe_tool_name(attrs.get("tool") or attrs.get("tool.name"))
         arguments = _json_object(attrs.get("tool.arguments") or attrs.get("arguments") or {})
         normalized = {
             "id": span.get("spanId") or span.get("span_id"),
-            "tool": tool,
+            "tool": tool_candidate,
             "arguments": arguments,
             "oauth_scopes": attrs.get("oauth.scopes") or attrs.get("oauth_scopes") or [],
             "retry_count": attrs.get("payment.retry_count", 0),
@@ -153,13 +162,14 @@ def from_otel(payload: Mapping[str, Any]) -> list[EvalCase]:
             "mutated_ledger": attrs.get("payment.mutated_ledger", False),
         }
         score = score_trace(normalized)
+        score.pop("tool", None)
         trace_id = str(span.get("traceId") or span.get("trace_id") or "")
         cases.append(
             EvalCase(
                 id=f"otel_{normalized['id'] or trace_id}",
                 source="otel",
-                input=_redact({"tool": tool, "arguments": arguments}),
-                expected_output=_redact({"pass": score["pass"], "tool": tool}),
+                input=_redact({"tool": safe_tool, "arguments": arguments}),
+                expected_output={"pass": score["pass"], **({"tool": safe_tool} if safe_tool else {})},
                 metadata={
                     "redaction_policy_version": REDACTION_POLICY_VERSION,
                     "score": _redact(score),
@@ -179,20 +189,26 @@ def from_langfuse(traces: Iterable[Mapping[str, Any]]) -> list[EvalCase]:
         raw_input = _json_object(trace.get("input"))
         raw_output = _json_object(trace.get("output"))
         trace_metadata = trace.get("metadata") or {}
+        tool_candidate = raw_input.get("tool") or trace.get("name")
+        safe_tool = _safe_tool_name(raw_input.get("tool"))
         normalized = {
             "id": trace_id,
-            "tool": raw_input.get("tool") or trace.get("name"),
+            "tool": tool_candidate,
             "arguments": raw_input.get("arguments") or {},
             "oauth_scopes": trace_metadata.get("oauth_scopes", []),
             "retry_count": trace_metadata.get("retry_count", 0),
             "max_retries": trace_metadata.get("max_retries", 3),
         }
         score = score_trace(normalized)
+        score.pop("tool", None)
+        safe_input = {key: value for key, value in raw_input.items() if key != "tool"}
+        if safe_tool:
+            safe_input["tool"] = safe_tool
         cases.append(
             EvalCase(
                 id=f"langfuse_{trace_id}",
                 source="langfuse",
-                input=_redact(raw_input),
+                input=_redact(safe_input),
                 expected_output=_redact(raw_output) or {"pass": score["pass"]},
                 metadata={
                     "redaction_policy_version": REDACTION_POLICY_VERSION,
