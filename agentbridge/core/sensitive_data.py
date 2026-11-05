@@ -75,6 +75,7 @@ _SAFE_TOOLS = frozenset({
 _SAFE_ENUMS: dict[str, frozenset[str]] = {
     "tool": _SAFE_TOOLS,
     "toolname": _SAFE_TOOLS,
+    "oauthscopes": frozenset({"payments:execute", "payments:read", "payments:status", "profile", "openid"}),
     "currency": frozenset({"KES", "NGN", "GHS", "UGX", "USD", "ZAR", "RWF", "TZS", "EGP", "MAD", "ETB", "EUR", "GBP"}),
     "provider": frozenset({"paystack", "mpesa", "daraja", "mtn_momo", "bank"}),
     "rail": frozenset({"bank", "ussd", "mobile_money", "mpesa", "paystack", "mtn_momo"}),
@@ -83,7 +84,7 @@ _SAFE_ENUMS: dict[str, frozenset[str]] = {
         "succeeded", "failed", "reversed", "draft", "pending_approval",
         "callback_received", "confirmed", "unknown", "success", "pending",
         "processing", "rejected", "expired", "ongoing", "accepted",
-        "denied", "approved", "cancelled", "timeout", "error",
+        "denied", "approved", "cancelled", "timeout", "error", "unset", "ok",
     }),
     "paymentstatus": frozenset({
         "created", "awaiting_confirmation", "submitted", "pending_callback",
@@ -119,7 +120,9 @@ _SAFE_ENUMS: dict[str, frozenset[str]] = {
 
 _SAFE_NUMERIC_KEYS = frozenset({
     "amount", "cost", "costusd", "spendusd", "llmcostusd",
-    "processingfeeusd", "retrycount", "maxretries", "latencyms",
+    "processingfeeusd", "retrycount", "maxretries", "paymentretrycount",
+    "paymentmaxretries", "toolargumentaccuracy", "executiongrounding",
+    "failureretrybehavior", "latencyms",
     "httpstatus", "statuscode", "score", "budget", "budgetusd",
     "threshold", "resultcode", "starttimeunixnano", "endtimeunixnano",
     "attempt", "attemptcount", "duration", "durationms", "stepcount",
