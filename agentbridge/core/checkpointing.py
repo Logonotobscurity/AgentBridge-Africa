@@ -208,7 +208,7 @@ def _restore_checkpoint(checkpoint_tuple: Any, serde: Any) -> Any:
     checkpoint = dict(checkpoint_tuple.checkpoint)
     channel_values = dict(checkpoint.get("channel_values") or {})
     for key, value in tuple(channel_values.items()):
-        if isinstance(value, tuple) and len(value) == 2 and value[0] == _PRIMITIVE_MARKER:
+        if isinstance(value, (tuple, list)) and len(value) == 2 and value[0] == _PRIMITIVE_MARKER:
             channel_values[key] = value[1]
         elif value is None or type(value) in (str, int, float, bool):
             raise ValueError("refusing legacy plaintext primitive channel value")
