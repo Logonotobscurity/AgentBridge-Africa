@@ -19,7 +19,7 @@ _REDACTED = "[REDACTED]"
 # Short identifiers are matched as complete tokens so spanId is not mistaken for PAN.
 _SENSITIVE_TOKENS = {
     "account", "authorization", "bank", "beneficiary", "bvn", "customer", "email",
-    "iban", "mobile", "msisdn", "nin", "otp", "pan", "password", "phone",
+    "iban", "mobile", "msisdn", "name", "nin", "otp", "pan", "password", "phone",
     "pin", "recipient", "secret", "swift", "token", "cvv", "cvc", "address",
 }
 _COMPACT_SENSITIVE_MARKERS = {
@@ -71,9 +71,11 @@ def _key_tokens(key: str) -> tuple[str, ...]:
 
 def _is_sensitive_key(key: str) -> bool:
     normalized = re.sub(r"[^a-z0-9]", "", key.casefold())
-    if normalized in {"pan", "pin"}:
+    if normalized in {"bvn", "nin", "otp", "pan", "pin", "cvv", "cvc"}:
         return True
-    if any(marker.replace("_", "") in normalized for marker in _COMPACT_SENSITIVE_MARKERS):
+    if normalized.startswith(("bvn", "nin", "otp", "cvv", "cvc")):
+        return True
+    if any(marker.replace("_", "") in normalized for marker in _COMPACT_SENSITIVE_MARKERS if marker not in {"bvn", "nin", "otp", "cvv", "cvc"}):
         return True
     tokens = _key_tokens(key)
     if any(token in _SENSITIVE_TOKENS for token in tokens):
@@ -220,7 +222,11 @@ def from_langfuse(traces: Iterable[Mapping[str, Any]]) -> list[EvalCase]:
         }
         score = score_trace(normalized)
         score.pop("tool", None)
-        safe_input = {key: value for key, value in raw_input.items() if key != "tool"}
+        safe_input = {
+            key: value
+            for key, value in raw_input.items()
+            if re.sub(r"[^a-z0-9]", "", str(key).casefold()) not in {"tool", "toolname"}
+        }
         if safe_tool:
             safe_input["tool"] = safe_tool
         cases.append(
