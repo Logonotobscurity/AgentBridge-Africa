@@ -30,7 +30,8 @@ _COMPACT_SENSITIVE_MARKERS = {
     "nin", "phone", "primary_account_number", "recipient_id",
     "recipient_name", "refresh_token", "routing_number", "sort_code",
     "tax_id", "authorization", "password", "secret", "token", "bvn",
-    "iban", "swift", "otp", "cvv", "cvc",
+    "iban", "swift", "otp", "cvv", "cvc", "customer", "beneficiary",
+    "recipient", "address", "name", "card_pan",
 }
 _SENSITIVE_PHRASES = {
     ("account", "no"), ("account", "number"), ("bank", "account"),
@@ -75,7 +76,11 @@ def _is_sensitive_key(key: str) -> bool:
         return True
     if normalized.startswith(("bvn", "nin", "otp", "cvv", "cvc")):
         return True
-    if any(marker.replace("_", "") in normalized for marker in _COMPACT_SENSITIVE_MARKERS if marker not in {"bvn", "nin", "otp", "cvv", "cvc"}):
+    if any(
+        marker.replace("_", "") in normalized
+        for marker in _COMPACT_SENSITIVE_MARKERS
+        if marker not in {"bvn", "nin", "otp", "cvv", "cvc"}
+    ):
         return True
     tokens = _key_tokens(key)
     if any(token in _SENSITIVE_TOKENS for token in tokens):
