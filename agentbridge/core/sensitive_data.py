@@ -85,6 +85,7 @@ _SAFE_ENUMS: dict[str, frozenset[str]] = {
         "callback_received", "confirmed", "unknown", "success", "pending",
         "processing", "rejected", "expired", "ongoing", "accepted",
         "denied", "approved", "cancelled", "timeout", "error", "unset", "ok",
+        "running", "budget_exceeded", "awaiting_hitl", "degraded",
     }),
     "paymentstatus": frozenset({
         "created", "awaiting_confirmation", "submitted", "pending_callback",
@@ -128,6 +129,7 @@ _SAFE_NUMERIC_KEYS = frozenset({
     "threshold", "resultcode", "starttimeunixnano", "endtimeunixnano",
     "attempt", "attemptcount", "duration", "durationms", "stepcount",
 })
+_SAFE_BOOL_KEYS = frozenset({"pass", "mutatedledger", "paymentmutatedledger"})
 _IDENTIFIER_KEYS = frozenset({
     "id", "traceid", "spanid", "parentspanid",
     "sourcetraceid", "sourceobservationid",
@@ -162,7 +164,7 @@ def _safe_scalar(value: Any, normalized_key: str) -> Any:
     if value is None:
         return None
     if isinstance(value, bool):
-        return value
+        return value if normalized_key in _SAFE_BOOL_KEYS else OMITTED
     if isinstance(value, (int, float)):
         return value if normalized_key in _SAFE_NUMERIC_KEYS else OMITTED
     if isinstance(value, str):
