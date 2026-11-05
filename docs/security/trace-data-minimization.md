@@ -12,7 +12,9 @@ The policy follows three external design principles:
 
 1. **Contextual PII protection.** NIST SP 800-122 frames PII protection around the context and impact of each data item, rather than a one-size-fits-all list. This project therefore classifies fields and explicitly limits what evaluation datasets retain. See [NIST SP 800-122](https://csrc.nist.gov/pubs/sp/800/122/final).
 2. **LLM sensitive-information disclosure controls.** OWASP's final 2026 LLM02 guidance treats tool arguments, reasoning traces, logs, and telemetry as disclosure surfaces. It recommends minimizing context and scrubbing logs/traces before APM ingestion, among other controls. See [OWASP GenAI LLM Top 10 — LLM02:2026](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM02_SensitiveInformationDisclosure.md).
-3. **Telemetry restraint.** OpenTelemetry assigns sensitive-data handling responsibility to the instrumentation owner and recommends collecting only attributes that serve an observability purpose, avoiding personal information unless necessary, and reviewing attributes regularly. See [OpenTelemetry sensitive-data guidance](https://opentelemetry.io/docs/security/handling-sensitive-data/) and [semantic-convention authoring guidance](https://opentelemetry.io/docs/specs/semconv/how-to-write-conventions/).
+3. **Nigeria-specific privacy principles.** The NDPC's published privacy policy states that personal data should be adequate, relevant and limited to the minimum necessary, not kept longer than necessary, and protected with appropriate security safeguards. This patch implements only a technical minimization slice; it is not a legal-compliance assessment. See [NDPC Data Privacy Policy](https://ndpc.gov.ng/our-data-privacy-policy/).
+4. **Telemetry restraint.** OpenTelemetry assigns sensitive-data handling responsibility to the instrumentation owner and recommends collecting only attributes that serve an observability purpose, avoiding personal information unless necessary, and reviewing attributes regularly. See [OpenTelemetry sensitive-data guidance](https://opentelemetry.io/docs/security/handling-sensitive-data/).
+5. **Least-privilege authorization evidence.** The policy retains only a small OAuth payment-scope allowlist so destructive-action evaluation can inspect evidence without retaining arbitrary scope strings. This telemetry allowlist does not grant permission or authorize execution; RFC 9700 §2.3 recommends restricting token privileges to the minimum needed and constraining them to specific resources/actions. See [RFC 9700 §2.3](https://www.rfc-editor.org/rfc/rfc9700.html#section-2.3).
 
 ## Policy rules
 
@@ -29,7 +31,7 @@ The policy follows three external design principles:
 The current allowlist is intentionally narrow:
 
 - Payment amount, cost, retry counts, bounded durations/latencies, evaluation scores and selected status codes.
-- Enumerated tool/provider/rail/currency/country/status/decision/event values.
+- Enumerated tool/provider/rail/currency/country/status/decision/event values, plus only the named payment scopes needed by authorization evaluation.
 - Valid opaque trace/span IDs in supported UUID/hex/ULID forms, for trace lineage only.
 - Boolean policy outcomes and explicit policy version.
 
