@@ -379,3 +379,20 @@ def test_known_payment_minor_units_are_retained_but_unknown_ids_are_not():
     assert clean["amount_in_minor_units"] == 125000
     assert clean["account_number"] == REDACTED
     assert clean["unknown_id"] == OMITTED
+
+
+
+def test_only_assurance_boolean_fields_are_retained():
+    clean = redact_sensitive_data({
+        "pass": True,
+        "mutated_ledger": False,
+        "payment.mutated_ledger": True,
+        "is_vip": True,
+        "customer_is_minor": False,
+    })
+
+    assert clean["pass"] is True
+    assert clean["mutated_ledger"] is False
+    assert clean["payment.mutated_ledger"] is True
+    assert clean["is_vip"] == OMITTED
+    assert clean["customer_is_minor"] == OMITTED
