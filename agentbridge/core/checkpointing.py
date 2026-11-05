@@ -29,7 +29,7 @@ _ID_PATTERN = re.compile(
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|"
     r"[0-9A-HJKMNP-TV-Z]{26})$"
 )
-_NAMESPACE_PATTERN = re.compile(r"^[A-Za-z0-9_.:/| -]{0,128}$")
+_NAMESPACE_PATTERN = re.compile(r"^[A-Za-z0-9_.:/|-]{0,128}$")
 _ALLOWED_SOURCES = frozenset({"input", "loop", "update", "resume"})
 
 
@@ -89,10 +89,12 @@ def _dsn(value: str | None) -> str:
 
 
 def _checkpoint_serde() -> Any:
-    """Build authenticated AES-EAX checkpoint serialization from a raw 256-bit key.
+    """Build authenticated AES-EAX serialization from a raw 256-bit key.
 
     The key is Base64 transport for 32 cryptographically random bytes. It must be
     provisioned by a secret manager; printable passphrases are not accepted.
+    The wrapper rejects legacy plaintext type tags returned by the upstream
+    EncryptedSerializer compatibility fallback.
     """
     encoded = os.getenv(CHECKPOINT_KEY_ENV, "")
     if not encoded:
@@ -186,7 +188,7 @@ def _prepare_checkpoint(checkpoint: Mapping[str, Any], serde: Any) -> dict[str, 
     prepared["channel_values"] = channel_values
 
     pending_sends = prepared.get("pending_sends")
-    if pending_sends not in (None, []):
+    if pending_sends is not None and pending_sends != []:
         type_tag, ciphertext = serde.dumps_typed(pending_sends)
         if not type_tag.endswith("+aes"):
             raise CheckpointConfigurationError("pending sends were not encrypted")
