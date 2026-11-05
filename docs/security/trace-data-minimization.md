@@ -33,7 +33,7 @@ The current allowlist is intentionally narrow:
 - Payment amount, cost, retry counts, bounded durations/latencies, evaluation scores and selected status codes.
 - Enumerated tool/provider/rail/currency/country/status/decision/event values, plus only the named payment scopes needed by authorization evaluation.
 - Valid opaque trace/span IDs in supported UUID/hex/ULID forms, for trace lineage only.
-- Boolean policy outcomes and explicit policy version.
+- Only the `pass` and `mutated_ledger` assurance booleans; arbitrary booleans are omitted, plus explicit policy version.
 
 This is not a general-purpose PII detector. The absence of a key match is not a guarantee that an arbitrary encoded or transformed secret is safe; unknown text is therefore dropped rather than scanned and retained.
 
