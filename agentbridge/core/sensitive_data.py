@@ -26,7 +26,7 @@ _SENSITIVE_KEYS = frozenset({
     # Financial and payment credentials/details.
     "accountnumber", "accountno", "acctnumber", "acctno",
     "bankaccount", "bankaccountnumber", "bankaccountno",
-    "bankdetails", "accountdetails", "accountholder",
+    "bankdetails", "bankname", "bankbranch", "bankcode", "bankaccountname", "bankroutingnumber", "accountdetails", "accountreference", "accountref", "accountholder",
     "accountholdername", "accountname", "iban", "routingnumber",
     "sortcode", "swift", "bic", "cardnumber", "pan", "cvv", "cvc",
     "pin", "otp", "passkey", "authorization", "cookie",
@@ -34,9 +34,9 @@ _SENSITIVE_KEYS = frozenset({
     "accesstoken", "refreshtoken", "bearertoken", "privatekey",
     "idempotencykey", "checkoutrequestid",
     # Personal identity and contact fields / containers.
-    "customer", "customerid", "customername", "customerprofile",
+    "customer", "customerid", "customername", "customerprofile", "customeremail", "customerphone", "customeraddress",
     "beneficiary", "beneficiaryid", "beneficiaryname",
-    "beneficiarydetails", "recipient", "recipientid", "recipientname",
+    "beneficiarydetails", "beneficiaryemail", "beneficiaryphone", "beneficiaryaddress", "recipient", "recipientid", "recipientname", "recipientemail", "recipientphone", "recipientaddress",
     "firstname", "middlename", "lastname", "fullname", "surname",
     "email", "emailaddress", "phone", "phonenumber", "mobile",
     "mobilenumber", "msisdn", "dateofbirth", "dob", "birthdate",
@@ -52,7 +52,7 @@ _SENSITIVE_PREFIXES = (
     "passportnumber", "taxidentificationnumber", "emailaddress",
     "phonenumber", "mobilenumber", "msisdn", "beneficiaryname",
     "recipientname", "customername", "streetaddress",
-    "residentialaddress", "accesstoken", "refreshtoken",
+    "residentialaddress", "accesstoken", "refreshtoken", "bankname", "bankbranch", "bankcode", "accountreference", "customeremail", "customerphone", "customeraddress", "beneficiaryemail", "beneficiaryphone", "beneficiaryaddress", "recipientemail", "recipientphone", "recipientaddress",
 )
 
 _FREE_TEXT_KEYS = frozenset({
@@ -139,7 +139,8 @@ def normalize_key(key: Any) -> str:
 def is_sensitive_key(key: Any) -> bool:
     normalized = normalize_key(key)
     return normalized in _SENSITIVE_KEYS or any(
-        normalized.startswith(prefix) for prefix in _SENSITIVE_PREFIXES
+        normalized.startswith(prefix) or normalized.endswith(prefix)
+        for prefix in _SENSITIVE_PREFIXES
     )
 
 
