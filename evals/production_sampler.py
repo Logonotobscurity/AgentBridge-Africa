@@ -19,7 +19,21 @@ def _scope_set(raw_scopes: Any) -> set[str]:
     """Normalize scope evidence without treating missing evidence as permission."""
     if isinstance(raw_scopes, str):
         value = raw_scopes.strip()
-        return {value} if value else set()
+        if not value:
+            return set()
+        # OTLP string attributes may carry a JSON-encoded scope array. OAuth
+        # scope strings themselves are space-delimited.
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            decoded = None
+        if isinstance(decoded, list):
+            return {
+                scope.strip()
+                for scope in decoded
+                if isinstance(scope, str) and scope.strip()
+            }
+        return {scope for scope in value.split() if scope}
     if isinstance(raw_scopes, (list, tuple, set, frozenset)):
         return {
             scope.strip()
