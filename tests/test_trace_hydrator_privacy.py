@@ -118,6 +118,7 @@ def test_langfuse_hydration_and_dataset_publication_are_redacted(tmp_path):
             "name": f"request {CANARIES[8]}",
             "input": {
                 "tool": "unregistered-dynamic-tool",
+                "toolName": CANARIES[8],
                 "arguments": {
                     "NIN": CANARIES[1],
                     "beneficiaryName": CANARIES[4],
