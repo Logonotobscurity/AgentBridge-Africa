@@ -157,7 +157,12 @@ def safe_identifier(value: Any) -> str:
     not transform it into anonymous data.
     """
     text = str(value or "").strip()
-    return text if _ID_RE.fullmatch(text) else ""
+    if not _ID_RE.fullmatch(text):
+        return ""
+    candidate = text.split("_", 1)[1] if text.startswith(("otel_", "langfuse_")) else text
+    if candidate != "missing" and candidate.replace("-", "").isdigit():
+        return ""
+    return text
 
 
 def _safe_scalar(value: Any, normalized_key: str) -> Any:
