@@ -24,6 +24,26 @@ class CheckpointConfigurationError(RuntimeError):
     pass
 
 
+class _StrictEncryptedCheckpointSerializer:
+    """Reject plaintext type tags instead of EncryptedSerializer's fallback path."""
+
+    def __init__(self, encrypted: Any) -> None:
+        self._encrypted = encrypted
+
+    def dumps_typed(self, value: Any) -> tuple[str, bytes]:
+        return self._encrypted.dumps_typed(value)
+
+    def loads_typed(self, payload: tuple[str, bytes]) -> Any:
+        if (
+            not isinstance(payload, tuple)
+            or len(payload) != 2
+            or not isinstance(payload[0], str)
+            or not payload[0].endswith("+aes")
+        ):
+            raise ValueError("refusing unencrypted or unsupported checkpoint payload")
+        return self._encrypted.loads_typed(payload)
+
+
 def checkpoint_config(run_id: str) -> dict[str, dict[str, str]]:
     if not run_id:
         raise ValueError("run_id is required for checkpoint isolation")
@@ -78,7 +98,8 @@ def _checkpoint_serde() -> Any:
         ) from exc
 
     try:
-        return EncryptedSerializer.from_pycryptodome_aes(key=key)
+        encrypted = EncryptedSerializer.from_pycryptodome_aes(key=key)
+        return _StrictEncryptedCheckpointSerializer(encrypted)
     except ImportError as exc:  # pragma: no cover - environment dependent
         raise CheckpointConfigurationError(
             "PyCryptodome is required for encrypted checkpoints; install the postgres extra"
