@@ -1,7 +1,7 @@
 # Trace and telemetry data-minimization policy
 
 **Policy version:** 2026-11-05.v1  
-**Implementation:** \`agentbridge/core/sensitive_data.py\`  
+**Implementation:** `agentbridge/core/sensitive_data.py`  
 **Decision:** minimize before observability/evaluation persistence; fail closed for unclassified text.
 
 ## Why this policy exists
@@ -11,8 +11,8 @@ The trace hydrator previously used a small exact-key list and deterministic, unk
 The policy follows three external design principles:
 
 1. **Contextual PII protection.** NIST SP 800-122 frames PII protection around the context and impact of each data item, rather than a one-size-fits-all list. This project therefore classifies fields and explicitly limits what evaluation datasets retain. See [NIST SP 800-122](https://csrc.nist.gov/pubs/sp/800/122/final).
-2. **LLM sensitive-information disclosure controls.** OWASP's 2026 LLM Top 10 identifies sensitive-information disclosure as a first-class LLM application risk. Its mitigation guidance emphasizes data minimization, sanitization, redacting traces, and restricting prompt/output logging. See [OWASP GenAI LLM Top 10 2026](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/tree/main/2026) and [LLM02 working guidance](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/working/LLM02_SensitiveInformationDisclosure.md).
-3. **Telemetry restraint.** OpenTelemetry advises collecting only attributes that serve an observability purpose and treating sensitive/verbose attributes as opt-in. It also places responsibility for sensitive-data handling on the instrumentation owner. See [OpenTelemetry sensitive-data guidance](https://opentelemetry.io/docs/security/handling-sensitive-data/) and [semantic-convention authoring guidance](https://opentelemetry.io/docs/specs/semconv/how-to-write-conventions/).
+2. **LLM sensitive-information disclosure controls.** OWASP's final 2026 LLM02 guidance treats tool arguments, reasoning traces, logs, and telemetry as disclosure surfaces. It recommends minimizing context and scrubbing logs/traces before APM ingestion, among other controls. See [OWASP GenAI LLM Top 10 — LLM02:2026](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM02_SensitiveInformationDisclosure.md).
+3. **Telemetry restraint.** OpenTelemetry assigns sensitive-data handling responsibility to the instrumentation owner and recommends collecting only attributes that serve an observability purpose, avoiding personal information unless necessary, and reviewing attributes regularly. See [OpenTelemetry sensitive-data guidance](https://opentelemetry.io/docs/security/handling-sensitive-data/) and [semantic-convention authoring guidance](https://opentelemetry.io/docs/specs/semconv/how-to-write-conventions/).
 
 ## Policy rules
 
