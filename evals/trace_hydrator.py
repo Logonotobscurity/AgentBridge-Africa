@@ -31,6 +31,22 @@ def _redact(value: Any, key: str = "") -> Any:
     return redact_sensitive_data(value, key=key)
 
 
+def _otlp_attribute_value(value: Any) -> Any:
+    """Unwrap OTLP AnyValue payloads, including typed arrays and kv-lists."""
+    if not isinstance(value, Mapping):
+        return value
+    for field in ("stringValue", "boolValue", "intValue", "doubleValue", "bytesValue"):
+        if field in value:
+            return value[field]
+    array = value.get("arrayValue")
+    if isinstance(array, Mapping):
+        return [_otlp_attribute_value(item) for item in array.get("values", [])]
+    nested = value.get("kvlistValue")
+    if isinstance(nested, Mapping):
+        return _attributes(nested.get("values", []))
+    return next(iter(value.values()), None)
+
+
 def _attributes(raw: Any) -> dict[str, Any]:
     if isinstance(raw, Mapping):
         return dict(raw)
@@ -38,10 +54,7 @@ def _attributes(raw: Any) -> dict[str, Any]:
     for item in raw or []:
         if not isinstance(item, Mapping) or "key" not in item:
             continue
-        value = item.get("value")
-        if isinstance(value, Mapping):
-            value = next(iter(value.values()), None)
-        result[str(item["key"])] = value
+        result[str(item["key"])] = _otlp_attribute_value(item.get("value"))
     return result
 
 
