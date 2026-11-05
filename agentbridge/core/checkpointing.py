@@ -30,7 +30,7 @@ _ID_PATTERN = re.compile(
     r"[0-9A-HJKMNP-TV-Z]{26})$"
 )
 _NAMESPACE_PATTERN = re.compile(r"^[A-Za-z0-9_.:/|-]{0,128}$")
-_ALLOWED_SOURCES = frozenset({"input", "loop", "update", "resume"})
+_ALLOWED_SOURCES = frozenset({"input", "loop", "update", "resume", "fork"})
 
 
 class CheckpointConfigurationError(RuntimeError):
