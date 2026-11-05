@@ -142,7 +142,7 @@ class Tracer:
         try:
             from opentelemetry import trace  # type: ignore
 
-            tracer = trace.get_tracer("agentbridge-africa")
+            tracer = trace.get_tracer(self.service_name)
             otel_span = tracer.start_span(_safe_span_name(span.name))
             for key, value in _safe_attributes(span.attributes).items():
                 if isinstance(value, (str, bool, int, float)):
