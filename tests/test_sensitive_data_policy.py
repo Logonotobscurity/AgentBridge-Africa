@@ -12,6 +12,7 @@ from evals.trace_hydrator import (
     EvalCase,
     from_langfuse,
     from_otel,
+    _attributes,
     publish_to_langfuse,
     write_eval_cases,
 )
@@ -102,6 +103,8 @@ def test_telemetry_minimizes_before_span_record_and_otlp_export():
             "currency": "NGN",
             "amount": 4200,
             "payment.retry_count": 1,
+            "payment.max_retries": 3,
+            "oauth.scopes": ["payments:execute", "admin:all"],
             "customer": {"firstName": "PERSON_CANARY", "BVN": "BVN_CANARY"},
             "message": "TRACE_MESSAGE_CANARY",
             "unknown": "TRACE_UNKNOWN_CANARY",
@@ -123,6 +126,9 @@ def test_telemetry_minimizes_before_span_record_and_otlp_export():
 
     assert record["attributes"]["amount"] == 4200
     assert record["attributes"]["currency"] == "NGN"
+    assert record["attributes"]["payment.retry_count"] == 1
+    assert record["attributes"]["payment.max_retries"] == 3
+    assert record["attributes"]["oauth.scopes"] == ["payments:execute"]
     assert record["attributes"]["privacy_policy_version"] == POLICY_VERSION
     exported_span = otlp["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
     assert exported_span["name"] == "payment.execute"
@@ -278,3 +284,59 @@ def test_untrusted_identifiers_are_not_retained_as_lineage():
     assert cases[0].source_trace_id == ""
     serialized = _serialized(cases[0].model_dump(mode="json"))
     assert "CUSTOMER_NAME_SHOULD_NOT_BE_A_TRACE_ID" not in serialized
+
+
+
+def test_authorization_scope_and_assurance_score_fields_survive_policy():
+    clean = redact_sensitive_data({
+        "oauth.scopes": ["payments:execute", "payments:read", "admin:all"],
+        "payment.retry_count": 2,
+        "payment.max_retries": 3,
+        "score": {
+            "tool_argument_accuracy": 1.0,
+            "execution_grounding": 1.0,
+            "failure_retry_behavior": 0.5,
+            "pass": True,
+        },
+    })
+
+    assert clean["oauth.scopes"] == ["payments:execute", "payments:read"]
+    assert clean["payment.retry_count"] == 2
+    assert clean["payment.max_retries"] == 3
+    assert clean["score"]["tool_argument_accuracy"] == 1.0
+    assert clean["score"]["execution_grounding"] == 1.0
+    assert clean["score"]["failure_retry_behavior"] == 0.5
+    assert clean["score"]["pass"] is True
+
+
+def test_otlp_array_value_scopes_are_decoded_as_strings():
+    attrs = _attributes([
+        {
+            "key": "oauth.scopes",
+            "value": {
+                "arrayValue": {
+                    "values": [
+                        {"stringValue": "payments:execute"},
+                        {"stringValue": "payments:read"},
+                    ]
+                }
+            },
+        }
+    ])
+
+    assert attrs["oauth.scopes"] == ["payments:execute", "payments:read"]
+
+
+def test_langfuse_uuid_trace_id_is_retained_as_linkable_lineage():
+    trace_id = "12345678-1234-5678-9abc-def012345678"
+    cases = from_langfuse([{
+        "id": trace_id,
+        "name": "payment.execute",
+        "input": {"tool": "execute_payment", "arguments": {"amount": 100, "currency": "NGN"}},
+        "output": {"status": "success"},
+    }])
+
+    assert len(cases) == 1
+    serialized = _serialized(cases[0].model_dump(mode="json"))
+    assert trace_id in serialized
+    assert f"langfuse_{trace_id}" in serialized
