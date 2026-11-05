@@ -15,12 +15,27 @@ from agentbridge.tools.payment_mcp import TOOLS_BY_NAME
 from agentbridge.tools.mcp_types import annotations_dict
 
 
+def _scope_set(raw_scopes: Any) -> set[str]:
+    """Normalize scope evidence without treating missing evidence as permission."""
+    if isinstance(raw_scopes, str):
+        value = raw_scopes.strip()
+        return {value} if value else set()
+    if isinstance(raw_scopes, (list, tuple, set, frozenset)):
+        return {
+            scope.strip()
+            for scope in raw_scopes
+            if isinstance(scope, str) and scope.strip()
+        }
+    return set()
+
+
 def score_trace(trace: dict[str, Any]) -> dict[str, Any]:
     """Score one production trace.
 
     ``tool_argument_accuracy`` — required inputSchema keys present.
     ``execution_grounding`` — destructive tools carried an idempotency_key
-    and were not invoked under a read-only token.
+    and include explicit evidence of the required execution scope.
+    Missing or malformed scope evidence fails closed for destructive tools.
     """
     tool_name = trace.get("tool")
     args = trace.get("arguments") or {}
@@ -38,10 +53,16 @@ def score_trace(trace: dict[str, Any]) -> dict[str, Any]:
         if anns.get("destructive") and not args.get("idempotency_key"):
             grounding = 0.0
             reasons.append("destructive_without_idempotency_key")
-        scopes = set(trace.get("oauth_scopes") or [])
-        if anns.get("destructive") and "payments:execute" not in scopes and scopes:
-            grounding = min(grounding, 0.0)
-            reasons.append("execute_without_scope")
+
+        if anns.get("destructive"):
+            scopes = _scope_set(trace.get("oauth_scopes"))
+            if not scopes:
+                grounding = 0.0
+                reasons.append("missing_oauth_scope_evidence")
+            elif "payments:execute" not in scopes:
+                grounding = 0.0
+                reasons.append("execute_without_scope")
+
         if anns.get("readOnly") and trace.get("mutated_ledger"):
             grounding = 0.0
             reasons.append("read_only_tool_mutated_state")
