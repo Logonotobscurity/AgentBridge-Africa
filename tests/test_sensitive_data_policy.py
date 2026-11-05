@@ -340,3 +340,9 @@ def test_langfuse_uuid_trace_id_is_retained_as_linkable_lineage():
     serialized = _serialized(cases[0].model_dump(mode="json"))
     assert trace_id in serialized
     assert f"langfuse_{trace_id}" in serialized
+
+
+
+def test_numeric_opaque_lookalike_is_not_retained_as_trace_lineage():
+    clean = redact_sensitive_data({"trace_id": "1234567890123456"})
+    assert clean["trace_id"] == OMITTED
