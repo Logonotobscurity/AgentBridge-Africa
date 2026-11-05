@@ -9,6 +9,7 @@ from agentbridge.core.router import AgentRouter
 from agentbridge.core.state import AgentState, ContextProfile
 from agentbridge.tools.payment_engine import UnifiedPaymentEngine
 from agentbridge.tools.payment_mcp import PROCESS_PAYMENT
+from evals.production_sampler import score_trace
 from evals.trace_hydrator import from_langfuse, from_otel, publish_to_langfuse
 
 
@@ -140,3 +141,78 @@ def test_langfuse_hydration_can_publish_linked_dataset_item():
     client = FakeClient()
     assert publish_to_langfuse(cases, client, "payments-production") == 1
     assert client.items[0]["source_trace_id"] == "lf-1"
+
+
+
+def test_destructive_trace_without_scope_evidence_fails_closed():
+    trace = {
+        "id": "missing-scope",
+        "tool": "process_payment",
+        "arguments": {
+            "amount": 20,
+            "currency": "NGN",
+            "destination_country": "NG",
+            "recipient": "customer-ref",
+            "idempotency_key": "idem-12345",
+        },
+    }
+
+    score = score_trace(trace)
+
+    assert score["execution_grounding"] == 0.0
+    assert score["pass"] is False
+    assert "missing_oauth_scope_evidence" in score["reasons"]
+
+
+def test_destructive_trace_with_wrong_scope_fails_closed():
+    trace = {
+        "id": "wrong-scope",
+        "tool": "process_payment",
+        "arguments": {
+            "amount": 20,
+            "currency": "NGN",
+            "destination_country": "NG",
+            "recipient": "customer-ref",
+            "idempotency_key": "idem-12345",
+        },
+        "oauth_scopes": ["payments:status"],
+    }
+
+    score = score_trace(trace)
+
+    assert score["execution_grounding"] == 0.0
+    assert score["pass"] is False
+    assert "execute_without_scope" in score["reasons"]
+
+
+def test_destructive_trace_accepts_exact_scope_string_without_splitting():
+    trace = {
+        "id": "valid-scope-string",
+        "tool": "process_payment",
+        "arguments": {
+            "amount": 20,
+            "currency": "NGN",
+            "destination_country": "NG",
+            "recipient": "customer-ref",
+            "idempotency_key": "idem-12345",
+        },
+        "oauth_scopes": "payments:execute",
+    }
+
+    score = score_trace(trace)
+
+    assert score["execution_grounding"] == 1.0
+    assert score["pass"] is True
+
+
+def test_read_only_trace_does_not_require_execution_scope():
+    score = score_trace(
+        {
+            "id": "read-only-no-scope",
+            "tool": "check_transaction",
+            "arguments": {"transaction_id": "txn-123"},
+        }
+    )
+
+    assert score["execution_grounding"] == 1.0
+    assert score["pass"] is True
