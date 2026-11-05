@@ -1,6 +1,8 @@
 import base64
 import sys
 from types import ModuleType
+from collections import namedtuple
+import json
 
 import pytest
 
@@ -10,6 +12,11 @@ from agentbridge.core.checkpointing import (
     CHECKPOINT_KEY_ENV,
     CheckpointConfigurationError,
     _checkpoint_serde,
+    _prepare_checkpoint,
+    _restore_checkpoint,
+    _safe_checkpoint_metadata,
+    _safe_checkpoint_config,
+    checkpoint_config,
 )
 
 
@@ -184,3 +191,103 @@ def test_async_saver_factory_requires_key_before_connecting(monkeypatch):
                 pass
         import asyncio
         asyncio.run(run())
+
+
+
+class FakeCheckpointSerde:
+    def dumps_typed(self, value):
+        payload = json.dumps(value, sort_keys=True).encode("utf-8")
+        return ("json+aes", base64.b64encode(payload))
+
+    def loads_typed(self, payload):
+        type_tag, encoded = payload
+        assert type_tag.endswith("+aes")
+        return json.loads(base64.b64decode(encoded).decode("utf-8"))
+
+
+def test_checkpoint_preparation_encrypts_primitive_channels_and_pending_sends():
+    serde = FakeCheckpointSerde()
+    checkpoint = {
+        "id": "a" * 32,
+        "channel_values": {
+            "goal": "SENSITIVE_GOAL_CANARY",
+            "status": "running",
+            "http_status": 202,
+            "approved": True,
+            "fallback_queue": [{"tool": "execute_payment", "arguments": {"recipient": "FALLBACK_CANARY"}}],
+        },
+        "pending_sends": [{"args": {"customer": "PENDING_SEND_CANARY"}}],
+    }
+
+    prepared = _prepare_checkpoint(checkpoint, serde)
+
+    assert prepared["channel_values"]["goal"][0].startswith("__agentbridge_encrypted_primitive")
+    assert prepared["channel_values"]["status"][0].startswith("__agentbridge_encrypted_primitive")
+    assert prepared["channel_values"]["http_status"][0].startswith("__agentbridge_encrypted_primitive")
+    assert prepared["channel_values"]["approved"][0].startswith("__agentbridge_encrypted_primitive")
+    assert "SENSITIVE_GOAL_CANARY" not in json.dumps(prepared["pending_sends"])
+    assert "PENDING_SEND_CANARY" not in json.dumps(prepared["pending_sends"])
+    # Structured channels are non-primitive and the base saver routes them to serde blobs.
+    assert prepared["channel_values"]["fallback_queue"] == checkpoint["channel_values"]["fallback_queue"]
+
+
+def test_checkpoint_restore_recovers_encrypted_channels_and_pending_sends():
+    serde = FakeCheckpointSerde()
+    checkpoint = {
+        "id": "a" * 32,
+        "channel_values": {"goal": "SENSITIVE_GOAL_CANARY"},
+        "pending_sends": [{"tool": "execute_payment"}],
+    }
+    prepared = _prepare_checkpoint(checkpoint, serde)
+    saved_type = namedtuple("SavedCheckpoint", ["checkpoint", "metadata"])
+    saved = saved_type(prepared, {"source": "loop", "prompt": "METADATA_CANARY"})
+    restored = _restore_checkpoint(saved, serde)
+
+    assert restored.checkpoint["channel_values"]["goal"] == "SENSITIVE_GOAL_CANARY"
+    assert restored.checkpoint["pending_sends"] == [{"tool": "execute_payment"}]
+    assert restored.metadata == {"source": "loop"}
+
+
+def test_checkpoint_restore_rejects_legacy_inline_plaintext_channels():
+    serde = FakeCheckpointSerde()
+    saved_type = namedtuple("SavedCheckpoint", ["checkpoint", "metadata"])
+    saved = saved_type(
+        {"channel_values": {"goal": "LEGACY_PLAINTEXT_CANARY"}, "pending_sends": []},
+        {"source": "input"},
+    )
+
+    with pytest.raises(ValueError, match="legacy plaintext primitive"):
+        _restore_checkpoint(saved, serde)
+
+
+def test_checkpoint_config_requires_opaque_run_ids():
+    assert checkpoint_config("f" * 32)["configurable"]["thread_id"] == "f" * 32
+    with pytest.raises(ValueError, match="opaque UUID/ULID"):
+        checkpoint_config("customer-123@example.invalid")
+
+
+def test_checkpoint_metadata_and_config_drop_untrusted_values():
+    safe = _safe_checkpoint_metadata({
+        "source": "loop",
+        "step": 12,
+        "parents": {"payments": "a" * 32},
+        "prompt": "RAW_PROMPT_METADATA_CANARY",
+        "customer_email": "user@example.invalid",
+        "tags": ["RAW_TAG_CANARY"],
+    })
+    config = _safe_checkpoint_config({
+        "configurable": {
+            "thread_id": "b" * 32,
+            "checkpoint_ns": "payments",
+            "checkpoint_id": "c" * 32,
+            "customer_email": "user@example.invalid",
+        },
+        "metadata": {"prompt": "RAW_CONFIG_METADATA_CANARY"},
+    })
+
+    serialized = json.dumps({"metadata": safe, "config": config})
+    assert "RAW_PROMPT_METADATA_CANARY" not in serialized
+    assert "RAW_TAG_CANARY" not in serialized
+    assert "RAW_CONFIG_METADATA_CANARY" not in serialized
+    assert "user@example.invalid" not in serialized
+    assert safe == {"source": "loop", "step": 12, "parents": {"payments": "a" * 32}}
