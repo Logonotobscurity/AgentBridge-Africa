@@ -1,7 +1,7 @@
 # PostgreSQL checkpoint data-protection boundary
 
-**Implementation:** \`agentbridge/core/checkpointing.py\`  
-**Key variable:** \`AGENTBRIDGE_CHECKPOINT_ENCRYPTION_KEY_B64\`  
+**Implementation:** `agentbridge/core/checkpointing.py`  
+**Key variable:** `AGENTBRIDGE_CHECKPOINT_ENCRYPTION_KEY_B64`  
 **Status:** Draft implementation; not yet verified against a live PostgreSQL checkpoint round-trip.
 
 ## 1. Why the serializer alone is insufficient
@@ -22,21 +22,21 @@ Implementation details must be reviewed against the installed LangGraph/checkpoi
 
 ## 2. Research basis
 
-1. **LangGraph encrypted serializer.** LangGraph provides \`EncryptedSerializer.from_pycryptodome_aes\` and supports injecting a serializer into checkpoint saver constructors. See the [LangGraph encrypted serializer reference](https://reference.langchain.com/python/langgraph.checkpoint/serde/encrypted/EncryptedSerializer) and the [checkpoint persistence documentation](https://docs.langchain.com/oss/python/langgraph/persistence).
-2. **Serializer compatibility behavior.** The upstream encrypted serializer accepts non-encrypted type tags by falling back to its inner serializer. This implementation wraps it and rejects type tags that do not end in \`+aes\`, so legacy/plaintext payloads are not silently accepted. See the [upstream encrypted serializer source](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint/langgraph/checkpoint/serde/encrypted.py).
+1. **LangGraph encrypted serializer.** LangGraph provides `EncryptedSerializer.from_pycryptodome_aes` and supports injecting a serializer into checkpoint saver constructors. See the [LangGraph encrypted serializer reference](https://reference.langchain.com/python/langgraph.checkpoint/serde/encrypted/EncryptedSerializer) and the [checkpoint persistence documentation](https://docs.langchain.com/oss/python/langgraph/persistence).
+2. **Serializer compatibility behavior.** The upstream encrypted serializer accepts non-encrypted type tags by falling back to its inner serializer. This implementation wraps it and rejects type tags that do not end in `+aes`, so legacy/plaintext payloads are not silently accepted. See the [upstream encrypted serializer source](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint/langgraph/checkpoint/serde/encrypted.py).
 3. **Storage path matters.** The PostgreSQL saver has separate paths for primitive values, blob values, checkpoint JSONB metadata and pending writes. The implementation adapts the write/read boundary rather than assuming every value is serialized. See the [Postgres saver implementation](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint-postgres/langgraph/checkpoint/postgres/__init__.py) and its [shared Postgres serialization helpers](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint-postgres/langgraph/checkpoint/postgres/base.py).
 4. **Threat-model alignment.** LangGraph's threat model identifies checkpoint content, pending writes, encryption configuration and checkpoint retention as security considerations. Encryption is a control, not an assertion that every metadata field or every external persistence/logging surface is protected. See the [LangGraph threat model](https://github.com/langchain-ai/langgraph/blob/main/.github/THREAT_MODEL.md).
 5. **Defence in depth.** Checkpoint encryption does not replace database TLS, least-privileged database roles, secret-manager access control, backup encryption, retention policy, or application log redaction.
 
 ## 3. Key provisioning
 
-The runtime requires \`AGENTBRIDGE_CHECKPOINT_ENCRYPTION_KEY_B64\`. Its value must be Base64 encoding of exactly 32 cryptographically random bytes (256 bits). It is not a passphrase.
+The runtime requires `AGENTBRIDGE_CHECKPOINT_ENCRYPTION_KEY_B64`. Its value must be Base64 encoding of exactly 32 cryptographically random bytes (256 bits). It is not a passphrase.
 
 Generate a new key in a trusted provisioning environment:
 
-\`\`\`bash
+```bash
 python -c "import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())"
-\`\`\`
+```
 
 Store the generated value in a secret manager and inject it only into the checkpointing process. Do not commit it, print it in CI logs, add it to a repository variable visible to untrusted workflows, or reuse the database password.
 
@@ -49,7 +49,7 @@ The following operational/index fields remain outside the encrypted payload by d
 - opaque thread/run ID, checkpoint ID, parent checkpoint ID and namespace;
 - checkpoint timestamp and version/channel-version bookkeeping;
 - channel names and the existence/count pattern of checkpoint rows;
-- the small allowlisted metadata fields (\`source\`, bounded \`step\`, and parent ID mapping).
+- the small allowlisted metadata fields (`source`, bounded `step`, and parent ID mapping).
 
 These values must not encode names, email addresses, phone numbers, customer IDs or other business identifiers. A UUID/ULID is pseudonymous and linkable, not anonymous. Database access, logs, backups and retention remain security boundaries.
 
@@ -87,7 +87,7 @@ No migration is performed by this pull request.
 
 - Unit tests cover missing/malformed/short keys, raw 32-byte key injection, strict rejection of plaintext serializer tags, primitive wrapping/restoration, pending-send encryption, metadata filtering, opaque IDs and refusal of legacy plaintext.
 - A real PostgreSQL integration test must run with the pinned dependency set and verify a full graph checkpoint write/read round-trip for goal, fallback queue, tool arguments, HITL state, callback state and pending sends.
-- Query the physical tables after writing seeded canaries and prove the plaintext values do not appear in \`checkpoints.checkpoint\`, metadata, \`checkpoint_blobs.blob\` or \`checkpoint_writes.blob\`.
+- Query the physical tables after writing seeded canaries and prove the plaintext values do not appear in `checkpoints.checkpoint`, metadata, `checkpoint_blobs.blob` or `checkpoint_writes.blob`.
 - Verify that removing/changing the key makes reads fail closed, and that database TLS, least privilege, backups and retention controls are independently configured.
 - Verify both sync and async saver implementations; unit mocks alone are not enough.
 
