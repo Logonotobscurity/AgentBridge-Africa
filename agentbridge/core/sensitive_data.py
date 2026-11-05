@@ -75,7 +75,7 @@ _SAFE_TOOLS = frozenset({
 _SAFE_ENUMS: dict[str, frozenset[str]] = {
     "tool": _SAFE_TOOLS,
     "toolname": _SAFE_TOOLS,
-    "oauthscopes": frozenset({"payments:execute", "payments:read", "payments:status", "profile", "openid"}),
+    "oauthscopes": frozenset({"payments:execute", "payments:read", "payments:status"}),
     "currency": frozenset({"KES", "NGN", "GHS", "UGX", "USD", "ZAR", "RWF", "TZS", "EGP", "MAD", "ETB", "EUR", "GBP"}),
     "provider": frozenset({"paystack", "mpesa", "daraja", "mtn_momo", "bank"}),
     "rail": frozenset({"bank", "ussd", "mobile_money", "mpesa", "paystack", "mtn_momo"}),
@@ -120,7 +120,7 @@ _SAFE_ENUMS: dict[str, frozenset[str]] = {
 }
 
 _SAFE_NUMERIC_KEYS = frozenset({
-    "amount", "cost", "costusd", "spendusd", "llmcostusd",
+    "amount", "amountminor", "amountinminorunits", "cost", "costusd", "spendusd", "llmcostusd",
     "processingfeeusd", "retrycount", "maxretries", "paymentretrycount",
     "paymentmaxretries", "toolargumentaccuracy", "executiongrounding",
     "failureretrybehavior", "latencyms",
