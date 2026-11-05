@@ -21,7 +21,7 @@ The policy follows three external design principles:
 - Normalize keys by case-folding and removing punctuation. This covers common snake_case, camelCase, punctuation and case variations.
 - Redact known sensitive keys and containers, including BVN/NIN, government identifiers, account/bank details, payment credentials, customer/beneficiary/recipient identity, contact fields and addresses.
 - Omit free-text fields such as prompts, context, rationale, messages, notes, descriptions, callback bodies, transcripts, errors and reasoning.
-- Omit unclassified string values and unclassified numeric values by default. Preserve only controlled enums, validated opaque trace identifiers, booleans and explicitly allowlisted operational numeric fields.
+- Omit unclassified string values and unclassified numeric values by default. Preserve only controlled enums, validated opaque trace identifiers, the bounded `pass`/`mutated_ledger` assurance booleans, and explicitly allowlisted operational numeric fields.
 - Retain only the small set of tool names, provider/currency/status values and span names defined in the policy code. Unknown values are not silently passed through.
 - Do not compute deterministic hashes of PII. A retained trace/span identifier is pseudonymous and linkable, not anonymous. It is retained only for evidence lineage, and still requires access control and a retention limit.
 - Apply the same policy when creating telemetry spans, converting them to SpanRecord/OTLP, hydrating OTEL or Langfuse records, writing JSONL, and publishing Langfuse dataset items.
