@@ -216,3 +216,61 @@ def test_read_only_trace_does_not_require_execution_scope():
 
     assert score["execution_grounding"] == 1.0
     assert score["pass"] is True
+
+
+def test_destructive_trace_accepts_space_delimited_oauth_scope_string():
+    trace = {
+        "tool": "process_payment",
+        "arguments": {
+            "amount": 20,
+            "currency": "NGN",
+            "destination_country": "NG",
+            "recipient": "customer-ref",
+            "idempotency_key": "idem-12345",
+        },
+        "oauth_scopes": "payments:status payments:execute",
+    }
+
+    score = score_trace(trace)
+
+    assert score["execution_grounding"] == 1.0
+    assert score["pass"] is True
+
+
+def test_destructive_trace_accepts_json_encoded_otlp_scope_array():
+    trace = {
+        "tool": "process_payment",
+        "arguments": {
+            "amount": 20,
+            "currency": "NGN",
+            "destination_country": "NG",
+            "recipient": "customer-ref",
+            "idempotency_key": "idem-12345",
+        },
+        "oauth_scopes": '["payments:execute", "payments:status"]',
+    }
+
+    score = score_trace(trace)
+
+    assert score["execution_grounding"] == 1.0
+    assert score["pass"] is True
+
+
+def test_destructive_trace_rejects_malformed_scope_evidence():
+    trace = {
+        "tool": "process_payment",
+        "arguments": {
+            "amount": 20,
+            "currency": "NGN",
+            "destination_country": "NG",
+            "recipient": "customer-ref",
+            "idempotency_key": "idem-12345",
+        },
+        "oauth_scopes": 42,
+    }
+
+    score = score_trace(trace)
+
+    assert score["execution_grounding"] == 0.0
+    assert score["pass"] is False
+    assert "missing_oauth_scope_evidence" in score["reasons"]
