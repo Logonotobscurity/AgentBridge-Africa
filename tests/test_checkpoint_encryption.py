@@ -6,6 +6,7 @@ import pytest
 
 from agentbridge.core import checkpointing
 from agentbridge.core.checkpointing import (
+    _StrictEncryptedCheckpointSerializer,
     CHECKPOINT_KEY_ENV,
     CheckpointConfigurationError,
     _checkpoint_serde,
@@ -100,6 +101,7 @@ def test_sync_saver_factory_requires_key_before_connecting(monkeypatch):
             raise AssertionError("database connection must not be opened without the key")
 
     psycopg = ModuleType("psycopg")
+    psycopg.__path__ = []
     psycopg.Connection = Connection
     rows = ModuleType("psycopg.rows")
     rows.dict_row = object()
@@ -120,3 +122,65 @@ def test_sync_saver_factory_requires_key_before_connecting(monkeypatch):
     with pytest.raises(CheckpointConfigurationError, match="refusing plaintext checkpoints"):
         with checkpointing.postgres_saver("postgresql://example.invalid/db"):
             pass
+
+
+
+def test_strict_checkpoint_serializer_rejects_plaintext_type_tags():
+    class FakeEncrypted:
+        def __init__(self):
+            self.loads = []
+
+        def dumps_typed(self, value):
+            return ("msgpack+aes", b"ciphertext")
+
+        def loads_typed(self, payload):
+            self.loads.append(payload)
+            return {"ok": True}
+
+    inner = FakeEncrypted()
+    serde = _StrictEncryptedCheckpointSerializer(inner)
+
+    assert serde.dumps_typed({"sensitive": "value"}) == ("msgpack+aes", b"ciphertext")
+    with pytest.raises(ValueError, match="refusing unencrypted"):
+        serde.loads_typed(("msgpack", b"plaintext"))
+
+    assert serde.loads_typed(("msgpack+aes", b"ciphertext")) == {"ok": True}
+    assert inner.loads == [("msgpack+aes", b"ciphertext")]
+
+
+def test_async_saver_factory_requires_key_before_connecting(monkeypatch):
+    monkeypatch.delenv(CHECKPOINT_KEY_ENV, raising=False)
+
+    class AsyncConnection:
+        @staticmethod
+        async def connect(*args, **kwargs):
+            raise AssertionError("database connection must not be opened without the key")
+
+    psycopg = ModuleType("psycopg")
+    psycopg.__path__ = []
+    psycopg.AsyncConnection = AsyncConnection
+    rows = ModuleType("psycopg.rows")
+    rows.dict_row = object()
+
+    langgraph = ModuleType("langgraph")
+    langgraph.__path__ = []
+    checkpoint = ModuleType("langgraph.checkpoint")
+    checkpoint.__path__ = []
+    postgres = ModuleType("langgraph.checkpoint.postgres")
+    postgres.__path__ = []
+    aio = ModuleType("langgraph.checkpoint.postgres.aio")
+    aio.AsyncPostgresSaver = object()
+
+    monkeypatch.setitem(sys.modules, "psycopg", psycopg)
+    monkeypatch.setitem(sys.modules, "psycopg.rows", rows)
+    monkeypatch.setitem(sys.modules, "langgraph", langgraph)
+    monkeypatch.setitem(sys.modules, "langgraph.checkpoint", checkpoint)
+    monkeypatch.setitem(sys.modules, "langgraph.checkpoint.postgres", postgres)
+    monkeypatch.setitem(sys.modules, "langgraph.checkpoint.postgres.aio", aio)
+
+    with pytest.raises(CheckpointConfigurationError, match="refusing plaintext checkpoints"):
+        async def run():
+            async with checkpointing.async_postgres_saver("postgresql://example.invalid/db"):
+                pass
+        import asyncio
+        asyncio.run(run())
