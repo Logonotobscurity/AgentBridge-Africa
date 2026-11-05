@@ -25,6 +25,7 @@ def _serialized(value):
 def test_key_normalization_redacts_identity_bank_and_beneficiary_aliases():
     canaries = {
         "BVN": "BVN_CANARY_12345678901",
+        "B.V.N.": "BVN_PUNCTUATION_CANARY",
         "bvnNumber": "BVN_NUMBER_CANARY",
         "national-id-number": "NIN_CANARY_12345678901",
         "NINNumber": "NIN_NUMBER_CANARY",
@@ -44,6 +45,7 @@ def test_key_normalization_redacts_identity_bank_and_beneficiary_aliases():
     serialized = _serialized(clean)
     for canary in (
         "BVN_CANARY_12345678901",
+        "BVN_PUNCTUATION_CANARY",
         "BVN_NUMBER_CANARY",
         "NIN_CANARY_12345678901",
         "NIN_NUMBER_CANARY",
@@ -82,6 +84,7 @@ def test_free_text_and_unclassified_strings_are_omitted_by_default():
     assert clean["unknownProviderField"] == OMITTED
     assert clean["unknownNumericField"] == OMITTED
     assert clean["amount"] == 2500
+    assert clean["amount_minor"] == 250000
     assert clean["currency"] == "NGN"
     assert clean["status"] == "pending"
     assert clean["tool"] == "execute_payment"
@@ -346,3 +349,33 @@ def test_langfuse_uuid_trace_id_is_retained_as_linkable_lineage():
 def test_numeric_opaque_lookalike_is_not_retained_as_trace_lineage():
     clean = redact_sensitive_data({"trace_id": "1234567890123456"})
     assert clean["trace_id"] == OMITTED
+
+
+
+def test_dynamic_span_label_is_not_exported():
+    tracer = Tracer()
+    span = tracer.start("payment CUSTOMER_NAME_CANARY", attributes={
+        "tool": "execute_payment",
+        "amount": 10,
+        "currency": "NGN",
+    })
+
+    record = span.to_record().model_dump(mode="json")
+    otlp = tracer.export_otlp()
+    assert record["name"] == OMITTED
+    assert "CUSTOMER_NAME_CANARY" not in _serialized(record)
+    assert "CUSTOMER_NAME_CANARY" not in _serialized(otlp)
+
+
+def test_known_payment_minor_units_are_retained_but_unknown_ids_are_not():
+    clean = redact_sensitive_data({
+        "amount_minor": 12500,
+        "amount_in_minor_units": 125000,
+        "account_number": 1234567890,
+        "unknown_id": "ACCOUNT_CANARY_901",
+    })
+
+    assert clean["amount_minor"] == 12500
+    assert clean["amount_in_minor_units"] == 125000
+    assert clean["account_number"] == REDACTED
+    assert clean["unknown_id"] == OMITTED
